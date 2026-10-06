@@ -25,3 +25,4 @@ public/uploads/banners/*
 .DS_Store
 *.log
 npm-debug.log*
+tsconfig.tsbuildinfo
