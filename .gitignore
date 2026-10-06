@@ -1,0 +1,27 @@
+# Environment variables — never commit real credentials.
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Prisma
+prisma/generated/
+
+# Admin-uploaded images (lib/admin/upload-image.actions.ts,
+# lib/admin/upload-banner-image.actions.ts) — real user content, not
+# source; keep the directories themselves under version control.
+public/uploads/products/*
+!public/uploads/products/.gitkeep
+public/uploads/banners/*
+!public/uploads/banners/.gitkeep
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*

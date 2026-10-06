@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ImageWithFallback } from '@/components/ui/ImageWithFallback'
 import { OrderTotalsBreakdown } from '@/components/cart/OrderTotalsBreakdown'
 import { PromoCode } from './PromoCode'
+import type { AppliedCoupon } from './PromoCode'
 import { formatPrice } from '@/lib/cart-pricing'
 import type { CartItem } from '@/lib/types'
 import type { CartTotals } from '@/lib/cart-pricing'
@@ -114,10 +115,14 @@ export function CheckoutSummary({
   items,
   currency,
   totals,
+  appliedCoupon,
+  onTotalsChange,
 }: {
   items: CartItem[]
   currency: string
   totals: CartTotals
+  appliedCoupon: AppliedCoupon | null
+  onTotalsChange: (totals: CartTotals, coupon: AppliedCoupon | null) => void
 }) {
   return (
     <div className="border border-border p-6 sm:p-7 flex flex-col gap-6 md:sticky md:top-[72px] md:self-start">
@@ -132,10 +137,15 @@ export function CheckoutSummary({
       </ul>
 
       <div className="flex flex-col gap-5 border-t border-border pt-5">
-        <OrderTotalsBreakdown currency={currency} totals={totals} />
+        <OrderTotalsBreakdown
+          currency={currency}
+          totals={totals}
+          couponCode={appliedCoupon?.code}
+          couponDiscount={appliedCoupon?.discount}
+        />
       </div>
 
-      <PromoCode />
+      <PromoCode currency={currency} appliedCoupon={appliedCoupon} onTotalsChange={onTotalsChange} />
 
       <div className="border-t border-border pt-5">
         <TrustBadges />

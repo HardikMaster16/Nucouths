@@ -1,7 +1,8 @@
-import React from 'react'
+'use client'
+
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { Container } from '@/components/ui/Container'
-import { NewsletterForm } from '@/components/layout/NewsletterForm'
 import type { FooterSection, SocialLink } from '@/lib/types'
 
 interface FooterProps {
@@ -11,8 +12,7 @@ interface FooterProps {
   tagline?: string
 }
 
-// ─── Social Icons ─────────────────────────────────────────────────────────────
-
+// Social Icons
 function InstagramIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -22,92 +22,126 @@ function InstagramIcon() {
     </svg>
   )
 }
-
-function PinterestIcon() {
+function FacebookIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    </svg>
+  )
+}
+function WhatsAppIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
     </svg>
   )
 }
 
-function TiktokIcon() {
+// Trust Badge Icons
+function LeafIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.72a4.85 4.85 0 0 1-1.01-.03z"/>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z" />
+      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+    </svg>
+  )
+}
+function FabricIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z" />
+    </svg>
+  )
+}
+function TruckIcon() {
+  return (
+    <svg width="16" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="1" y="3" width="15" height="13" />
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
+    </svg>
+  )
+}
+function LockIcon() {
+  return (
+    <svg width="13" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
+function ArrowRightIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
     </svg>
   )
 }
 
-const socialIconMap = {
-  instagram: InstagramIcon,
-  pinterest: PinterestIcon,
-  tiktok: TiktokIcon,
-  facebook: () => null,
-  youtube: () => null,
+// Inline Newsletter Form
+function InlineNewsletterForm() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!email) return
+    setStatus('success')
+    setEmail('')
+  }
+
+  if (status === 'success') {
+    return <p className="text-sm text-white/60 py-3">Thank you — you&apos;re on the list!</p>
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center border border-white/20 overflow-hidden" aria-label="Newsletter signup" noValidate>
+      <input
+        type="email"
+        placeholder="Your email address"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="flex-1 h-12 px-4 bg-transparent text-sm font-sans text-white placeholder:text-white/35 focus:outline-none"
+        aria-label="Email address for newsletter"
+      />
+      <button type="submit" className="w-12 h-12 flex items-center justify-center bg-white text-black flex-shrink-0 hover:bg-white/90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" aria-label="Subscribe">
+        <ArrowRightIcon />
+      </button>
+    </form>
+  )
 }
 
-// ─── Footer ───────────────────────────────────────────────────────────────────
-
+// Footer
 export function Footer({ sections, socialLinks, brandName, tagline }: FooterProps) {
   return (
-    <footer className="bg-text-primary text-white mt-20" role="contentinfo">
-      {/* ── Main Footer Grid ──────────────────────────────── */}
+    <footer className="bg-black text-white" role="contentinfo" style={{ position: 'relative' }}>
+
+      {/* Main Footer Grid */}
       <Container className="pt-14 pb-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.6fr] gap-10 lg:gap-6">
 
           {/* Brand Column */}
-          <div className="sm:col-span-2 lg:col-span-1">
-            <Link
-              href="/"
-              className="inline-block font-display text-xl tracking-[0.25em] uppercase text-white hover:text-accent transition-colors duration-250 mb-4"
-              aria-label={`${brandName} — return to homepage`}
-            >
-              {brandName}
+          <div>
+            <Link href="/" className="inline-block hover:opacity-80 transition-opacity duration-250 mb-5" aria-label={`${brandName} — return to homepage`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logos/primary-logo.svg" alt={brandName} className="h-[90px] w-auto invert" />
             </Link>
             {tagline && (
-              <p className="text-sm font-sans text-white/50 leading-relaxed mb-6 max-w-[220px]">
-                {tagline}
-              </p>
+              <p className="text-sm font-sans text-white/50 leading-relaxed max-w-[200px]">{tagline}</p>
             )}
-
-            {/* Social Links */}
-            <div className="flex items-center gap-3">
-              {socialLinks.map((social) => {
-                const Icon = socialIconMap[social.icon]
-                if (!Icon) return null
-                return (
-                  <a
-                    key={social.platform}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Follow us on ${social.platform}`}
-                    className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-accent border border-white/10 hover:border-accent/40 rounded-sm transition-all duration-250"
-                  >
-                    <Icon />
-                  </a>
-                )
-              })}
-            </div>
           </div>
 
           {/* Link Sections */}
           {sections.map((section) => (
             <div key={section.heading}>
-              <h3 className="text-xs font-sans font-semibold tracking-widest uppercase text-white/30 mb-4">
-                {section.heading}
-              </h3>
-              <ul className="space-y-2.5" role="list">
+              <h3 className="text-[10px] font-sans font-semibold tracking-[0.18em] uppercase text-white/40 mb-5">{section.heading}</h3>
+              <ul className="space-y-3" role="list">
                 {section.links.map((link) => (
                   <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm font-sans text-white/60 hover:text-white transition-colors duration-200"
-                      {...(link.external
-                        ? { target: '_blank', rel: 'noopener noreferrer' }
-                        : {})}
-                    >
+                    <Link href={link.href} className="text-sm font-sans text-white/70 hover:text-white transition-colors duration-200" {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                       {link.label}
                     </Link>
                   </li>
@@ -118,31 +152,61 @@ export function Footer({ sections, socialLinks, brandName, tagline }: FooterProp
 
           {/* Newsletter Column */}
           <div>
-            <h3 className="text-xs font-sans font-semibold tracking-widest uppercase text-white/30 mb-4">
-              Newsletter
-            </h3>
-            <p className="text-sm font-sans text-white/50 leading-relaxed mb-4">
-              Early access to new arrivals and exclusive member offers.
-            </p>
-            <NewsletterForm />
+            <p className="text-[10px] font-sans font-semibold tracking-[0.18em] uppercase text-white/40 mb-4">Join Our Journey</p>
+            <h3 className="text-[1.65rem] font-display font-bold leading-tight text-white mb-3">Be the first to know.</h3>
+            <p className="text-sm font-sans text-white/50 leading-relaxed mb-5">New arrivals, exclusive offers and style inspiration.</p>
+            <InlineNewsletterForm />
+            <div className="flex items-center gap-3 mt-5">
+              <a href="https://instagram.com/nucouths" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Instagram" className="w-10 h-10 flex items-center justify-center border border-white/30 rounded-full text-white/70 hover:text-white hover:border-white transition-all duration-250">
+                <InstagramIcon />
+              </a>
+              <a href="https://facebook.com/nucouths" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Facebook" className="w-10 h-10 flex items-center justify-center border border-white/30 rounded-full text-white/70 hover:text-white hover:border-white transition-all duration-250">
+                <FacebookIcon />
+              </a>
+              <a href="https://wa.me/nucouths" target="_blank" rel="noopener noreferrer" aria-label="Contact us on WhatsApp" className="w-10 h-10 flex items-center justify-center border border-white/30 rounded-full text-white/70 hover:text-white hover:border-white transition-all duration-250">
+                <WhatsAppIcon />
+              </a>
+            </div>
           </div>
         </div>
       </Container>
 
-      {/* ── Bottom Bar ────────────────────────────────────── */}
-      <div className="border-t border-white/10">
-        <Container className="py-5">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-sans text-white/30">
-            <p>© {new Date().getFullYear()} {brandName}. All rights reserved.</p>
-            <nav aria-label="Legal links" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-              <Link href="/privacy" className="hover:text-white/60 transition-colors duration-150">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-white/60 transition-colors duration-150">Terms &amp; Conditions</Link>
-              <Link href="/shipping" className="hover:text-white/60 transition-colors duration-150">Shipping Policy</Link>
-              <Link href="/returns" className="hover:text-white/60 transition-colors duration-150">Refund &amp; Returns</Link>
+      {/* Bottom Bar */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.5)', position: 'relative', zIndex: 10, backgroundColor: '#000000' }}>
+        <Container className="py-4">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4 text-[11px] font-sans text-white/35">
+            <p className="shrink-0">&#169; {new Date().getFullYear()} {brandName}. All rights reserved.</p>
+            <div className="flex items-center flex-wrap justify-center">
+              <div className="flex items-center gap-2 px-4">
+                <LeafIcon />
+                <span className="tracking-[0.12em] uppercase text-[10px]">Crafted With Intention</span>
+              </div>
+              <span className="text-white/25">|</span>
+              <div className="flex items-center gap-2 px-4">
+                <FabricIcon />
+                <span className="tracking-[0.12em] uppercase text-[10px]">Quality Fabrics</span>
+              </div>
+              <span className="text-white/25">|</span>
+              <div className="flex items-center gap-2 px-4">
+                <TruckIcon />
+                <span className="tracking-[0.12em] uppercase text-[10px]">Fast &amp; Reliable Shipping</span>
+              </div>
+              <span className="text-white/25">|</span>
+              <div className="flex items-center gap-2 px-4">
+                <LockIcon />
+                <span className="tracking-[0.12em] uppercase text-[10px]">Secure Check Out</span>
+              </div>
+            </div>
+            <nav aria-label="Legal links" className="flex items-center gap-5 shrink-0">
+              <Link href="/privacy" className="hover:text-white/70 transition-colors duration-150">Privacy</Link>
+              <Link href="/terms" className="hover:text-white/70 transition-colors duration-150">Terms</Link>
+              <Link href="/shipping" className="hover:text-white/70 transition-colors duration-150">Shipping</Link>
+              <Link href="/returns" className="hover:text-white/70 transition-colors duration-150">Refunds</Link>
             </nav>
           </div>
         </Container>
       </div>
+
     </footer>
   )
 }

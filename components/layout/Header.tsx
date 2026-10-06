@@ -2,12 +2,13 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useScrolled } from '@/hooks/useScrolled'
 import { MobileMenu } from '@/components/layout/MobileMenu'
 import { useCart } from '@/lib/cart-context'
 import { useWishlist } from '@/lib/wishlist-context'
 import { useAuth } from '@/lib/auth-context'
+import { normalizeSearchQuery } from '@/lib/product-filters'
 import type { NavItem } from '@/lib/types'
 
 interface HeaderProps {
@@ -124,8 +125,17 @@ function NavIconBtn({
 
 // ─── Desktop Search Panel ─────────────────────────────────────────────────────
 
-function SearchPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function SearchPanel({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onSubmit: (value: string) => void
+}) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [value, setValue] = useState('')
 
   useEffect(() => {
     if (isOpen) {
@@ -144,6 +154,11 @@ function SearchPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
     return () => document.removeEventListener('keydown', handleKey)
   }, [isOpen, onClose])
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(value)
+  }
+
   return (
     <div
       className={[
@@ -153,19 +168,28 @@ function SearchPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
         isOpen ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0 pointer-events-none',
       ].join(' ')}
       aria-hidden={!isOpen}
-      role="search"
     >
-      <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
+      <form
+        role="search"
+        onSubmit={handleSubmit}
+        className="max-w-container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4"
+      >
         <span className="text-text-secondary shrink-0">
           <SearchIcon />
         </span>
+        <label htmlFor="header-search-desktop" className="sr-only">
+          Search products
+        </label>
         <input
           ref={inputRef}
+          id="header-search-desktop"
+          name="q"
           type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
           placeholder="Search for products, styles, collections…"
           tabIndex={isOpen ? 0 : -1}
           className="flex-1 bg-transparent text-base font-sans text-text-primary placeholder:text-text-secondary outline-none border-none"
-          aria-label="Search products"
         />
         <button
           type="button"
@@ -177,8 +201,41 @@ function SearchPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
           <XIcon />
           <span className="hidden sm:inline">Close</span>
         </button>
-      </div>
+      </form>
     </div>
+  )
+}
+
+// ─── Mobile Search Bar ────────────────────────────────────────────────────────
+
+function MobileSearchBar({ onSubmit }: { onSubmit: (value: string) => void }) {
+  const [value, setValue] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(value)
+  }
+
+  return (
+    <form role="search" onSubmit={handleSubmit} className="lg:hidden border-t border-white/[0.08]">
+      <div className="flex items-center gap-3 px-4 py-2 h-10">
+        <span className="shrink-0 text-white/40" aria-hidden="true">
+          <SearchIcon />
+        </span>
+        <label htmlFor="header-search-mobile" className="sr-only">
+          Search products
+        </label>
+        <input
+          id="header-search-mobile"
+          name="q"
+          type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Search products…"
+          className="flex-1 min-w-0 bg-transparent text-sm font-sans text-white placeholder:text-white/35 outline-none border-none"
+        />
+      </div>
+    </form>
   )
 }
 
@@ -189,12 +246,21 @@ export function Header({ navItems }: HeaderProps) {
   const { itemCount: wishlistCount } = useWishlist()
   const { user } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
   const scrolled = useScrolled(8)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
 
   const accountHref = user ? '/account' : '/login'
   const accountActive = pathname === '/login' || pathname === '/account'
+
+  // Header search is just an entry point into /search (the prominent,
+  // editable search field lives there) — never a second search implementation.
+  const handleSearchSubmit = (value: string) => {
+    const normalized = normalizeSearchQuery(value)
+    router.push(normalized ? `/search?q=${encodeURIComponent(normalized)}` : '/search')
+    setSearchOpen(false)
+  }
 
   return (
     <>
@@ -210,8 +276,8 @@ export function Header({ navItems }: HeaderProps) {
         <div className="max-w-container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center h-14 lg:h-[60px]">
 
-            {/* LEFT — hamburger (≤lg) | desktop nav (lg+) */}
-            <div className="flex items-center lg:flex-1">
+            {/* LEFT — hamburger (≤lg) | symbol mark + desktop nav (lg+) */}
+            <div className="flex items-center flex-1">
               {/* Mobile hamburger */}
               <NavIconBtn
                 label="Open navigation menu"
@@ -220,6 +286,16 @@ export function Header({ navItems }: HeaderProps) {
               >
                 <MenuIcon />
               </NavIconBtn>
+
+              {/* Desktop symbol mark */}
+              <Link
+                href="/"
+                aria-label="Nucouths — return to homepage"
+                className="hidden lg:flex items-center mr-8 shrink-0 opacity-90 hover:opacity-100 transition-opacity duration-200"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logos/symbol.svg" alt="" aria-hidden="true" className="h-6 w-auto invert" />
+              </Link>
 
               {/* Desktop nav links */}
               <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-8">
@@ -240,14 +316,19 @@ export function Header({ navItems }: HeaderProps) {
               <Link
                 href="/"
                 aria-label="Nucouths — return to homepage"
-                className="block font-display text-lg sm:text-xl lg:text-2xl tracking-[0.22em] uppercase text-white hover:text-accent transition-colors duration-250 whitespace-nowrap"
+                className="block hover:opacity-80 transition-opacity duration-250"
               >
-                Nucouths
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/logos/text-logo.svg"
+                  alt="Nucouths"
+                  className="h-4 sm:h-5 lg:h-6 w-auto invert"
+                />
               </Link>
             </div>
 
             {/* RIGHT — action icons */}
-            <div className="flex items-center gap-0.5 lg:flex-1 lg:justify-end">
+            <div className="flex items-center gap-0.5 flex-1 justify-end">
               {/* Search */}
               <NavIconBtn
                 label={searchOpen ? 'Close search' : 'Open search'}
@@ -290,23 +371,11 @@ export function Header({ navItems }: HeaderProps) {
 
         {/* Desktop search panel — slides down below header */}
         <div className="relative hidden lg:block">
-          <SearchPanel isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+          <SearchPanel isOpen={searchOpen} onClose={() => setSearchOpen(false)} onSubmit={handleSearchSubmit} />
         </div>
 
         {/* Mobile search bar — always visible below main row on mobile */}
-        <div className="lg:hidden border-t border-white/[0.08]">
-          <div className="flex items-center gap-3 px-4 py-2 h-10">
-            <span className="shrink-0 text-white/40" aria-hidden="true">
-              <SearchIcon />
-            </span>
-            <input
-              type="search"
-              placeholder="Search products…"
-              className="flex-1 min-w-0 bg-transparent text-sm font-sans text-white placeholder:text-white/35 outline-none border-none"
-              aria-label="Search products"
-            />
-          </div>
-        </div>
+        <MobileSearchBar onSubmit={handleSearchSubmit} />
       </header>
 
       {/* Mobile slide-in menu */}

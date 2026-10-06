@@ -43,6 +43,11 @@ export interface Product {
   slug: string
   category: string
   subcategory?: string
+  /** Named seasonal/thematic collection (e.g. 'Autumn / Winter 2025',
+   *  'Resort Edit') — already authored per-product in
+   *  lib/product-detail-data.ts; also present here so the catalog-level
+   *  listing/filtering (lib/product-filters.ts) can use it directly. */
+  collection?: string
   price: number
   compareAtPrice?: number       // original price when on sale
   currency: string
@@ -50,6 +55,9 @@ export interface Product {
   hoverImage?: ProductImage     // shown on card hover
   colors?: ProductColor[]
   badge?: ProductBadge
+  /** Homepage "New In" section membership (Product.newIn, prisma/schema.prisma)
+   *  — admin-set, independent of `badge`. */
+  newIn?: boolean
   isWishlisted?: boolean
   inStock: boolean
   sizes?: string[]
@@ -140,11 +148,39 @@ export interface CartItem {
   compareAtPrice?: number
   currency: string
   image: ProductImage
+  /** Stock at the time this line was last read/added — for a signed-in
+   *  customer this is always the live ProductVariant.stock (lib/cart.db.ts
+   *  re-reads it from Prisma on every cart load); for a guest it's a
+   *  point-in-time snapshot from when the item was added. Display-only
+   *  (drives the quantity selector's cap) — never authoritative for
+   *  checkout, which always re-reads stock from Prisma regardless.
+   *  Optional: undefined for a historical order-item reconstruction
+   *  (lib/orders.actions.ts) or a pre-existing localStorage guest cart line
+   *  persisted before this field existed — both degrade to "no further
+   *  increase" rather than a hard error (see CartClient.tsx's
+   *  getMaxQuantity). */
+  stock?: number
 }
 
 // ─── Checkout ────────────────────────────────────────────────────────────────
 
 export type PaymentMethod = 'upi' | 'card' | 'netbanking' | 'cod'
+
+export type OrderStatus =
+  | 'Processing'
+  | 'Confirmed'
+  | 'Shipped'
+  | 'Out for Delivery'
+  | 'Delivered'
+  | 'Cancelled'
+
+/** Matches prisma/schema.prisma's OrderPaymentStatus enum exactly — unlike
+ *  OrderStatus, none of these values need @map translation (no spaces), so
+ *  there's no separate TO/FROM mapping table for this one. Deliberately
+ *  independent of OrderStatus (fulfillment) — see Order.paymentStatus's own
+ *  schema docstring for why an order can be Confirmed while payment is
+ *  still Pending. */
+export type OrderPaymentStatus = 'Pending' | 'Paid' | 'Failed' | 'Refunded'
 
 export interface ContactInfo {
   email: string
@@ -161,6 +197,24 @@ export interface ShippingAddress {
   pinCode: string
   country: string
   phone: string
+}
+
+// ─── Saved Addresses ─────────────────────────────────────────────────────────
+// Extends ShippingAddress (rather than a parallel field-naming scheme) so a
+// saved Address is already shaped exactly like what checkout needs — no
+// mapping required once checkout gains saved-address selection.
+
+export type AddressLabel = 'Home' | 'Work' | 'Other'
+
+export interface Address extends ShippingAddress {
+  id: string
+  /** Owning customer's id — always stamped from the authenticated session,
+   *  never trusted from client input. See lib/address-context.tsx. */
+  userId: string
+  label: AddressLabel
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 // ─── Common UI ───────────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ export function LoginClient() {
   const searchParams = useSearchParams()
   const { user, isHydrated, login } = useAuth()
 
-  const redirectTarget = searchParams.get('redirect') || '/'
+  const redirectTarget = searchParams.get('redirect') || '/account'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

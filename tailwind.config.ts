@@ -33,9 +33,13 @@ const config: Config = {
       },
 
       // ─── Typography ─────────────────────────────────────────────────────────
+      // Sequel Sans (app/layout.tsx, self-hosted via next/font/local) is the
+      // site's only typeface — "Disp" cut for headings/hero text, "Body" cut
+      // for everything else. Both fall back to a plain sans stack (not a
+      // serif) since Sequel Sans has no serif counterpart.
       fontFamily: {
-        display: ['var(--font-playfair)', 'Georgia', 'serif'],
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-sequel-display)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sequel-body)', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '1rem' }],
@@ -137,6 +141,12 @@ const config: Config = {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(-50%)' },
         },
+        /* Homepage hero content entrance (components/home/HeroBanner.tsx) —
+           only ever applied via the `motion-safe:` variant. */
+        'hero-in': {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'slide-down': 'slide-down 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -144,6 +154,7 @@ const config: Config = {
         'slide-in-left': 'slide-in-left 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
         'fade-in': 'fade-in 0.25s ease-in-out',
         'marquee': 'marquee 20s linear infinite',
+        'hero-in': 'hero-in 0.7s cubic-bezier(0.4, 0, 0.2, 1) both',
       },
 
       // ─── Aspect Ratios ────────────────────────────────────────────────────────

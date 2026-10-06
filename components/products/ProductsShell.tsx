@@ -29,6 +29,10 @@ interface ActiveFilters {
 interface ProductsShellProps {
   result: FilterResult
   activeFilters: ActiveFilters
+  /** Overrides the default "No products found" empty state — used by
+   *  /search to show search-specific copy while reusing everything else
+   *  here (filters, sort, grid, pagination) unchanged. */
+  emptyState?: React.ReactNode
 }
 
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
@@ -199,7 +203,7 @@ function LoadMoreButton({ shown, total, onLoadMore }: {
 
 // ─── ProductsShell ────────────────────────────────────────────────────────────
 
-export function ProductsShell({ result, activeFilters }: ProductsShellProps) {
+export function ProductsShell({ result, activeFilters, emptyState }: ProductsShellProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -272,7 +276,7 @@ export function ProductsShell({ result, activeFilters }: ProductsShellProps) {
 
           {/* Grid or empty state */}
           {result.total === 0 ? (
-            <EmptyState onClear={handleClearAll} />
+            emptyState ?? <EmptyState onClear={handleClearAll} />
           ) : (
             <>
               <div className="pt-6">

@@ -11,31 +11,33 @@
 /* ─── CSS Custom Properties ─────────────────────────────────────────────── */
 :root {
   /* Colors */
-  --color-bg:             #FFFFFF;
-  --color-text-primary:   #111111;
+  --color-bg: #FFFFFF;
+  --color-text-primary: #111111;
   --color-text-secondary: #666666;
-  --color-border:         #E5E5E5;
-  --color-surface:        #F7F7F7;
-  --color-accent:         #C8A97E;
-  --color-accent-light:   #E0CEAD;
-  --color-accent-dark:    #A8844E;
-  --color-sale:           #D94F3D;
-  --color-header-bg:      #111111;
-  --color-header-text:    #FFFFFF;
-  --color-announce-bg:    #1A1A1A;
+  --color-border: #E5E5E5;
+  --color-surface: #F7F7F7;
+  --color-accent: #C8A97E;
+  --color-accent-light: #E0CEAD;
+  --color-accent-dark: #A8844E;
+  --color-sale: #D94F3D;
+  --color-header-bg: #111111;
+  --color-header-text: #FFFFFF;
+  --color-announce-bg: #1A1A1A;
 
-  /* Typography */
-  --font-display: var(--font-playfair), Georgia, serif;
-  --font-sans:    var(--font-inter), system-ui, sans-serif;
+  /* Typography — Sequel Sans (app/layout.tsx), no serif fallback since the
+     family has none. */
+  --font-display: var(--font-sequel-display), system-ui, sans-serif;
+  --font-sans: var(--font-sequel-body), system-ui, sans-serif;
 
   /* Transitions */
-  --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base:   250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow:   350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─── Base Resets ───────────────────────────────────────────────────────── */
 @layer base {
+
   *,
   *::before,
   *::after {
@@ -99,6 +101,7 @@
 
 /* ─── Component Layer ───────────────────────────────────────────────────── */
 @layer components {
+
   /* Typography utilities */
   .heading-display {
     @apply font-display text-5xl sm:text-6xl lg:text-7xl leading-[1.02] tracking-tight text-text-primary;
@@ -156,6 +159,7 @@
 
 /* ─── Utility Layer ─────────────────────────────────────────────────────── */
 @layer utilities {
+
   /* Text truncation */
   .line-clamp-2 {
     display: -webkit-box;
@@ -185,18 +189,45 @@
 
   /* Hide scrollbar visually while keeping scroll functionality */
   .no-scrollbar {
-    scrollbar-width: none;       /* Firefox */
-    -ms-overflow-style: none;    /* IE / Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE / Edge */
   }
+
   .no-scrollbar::-webkit-scrollbar {
-    display: none;               /* Chrome / Safari */
+    display: none;
+    /* Chrome / Safari */
   }
 }
 
 /* ─── Keyframes ─────────────────────────────────────────────────────────── */
 @keyframes scrollLine {
-  0%   { transform: translateY(-100%); opacity: 0; }
-  30%  { opacity: 1; }
-  70%  { opacity: 1; }
-  100% { transform: translateY(200%); opacity: 0; }
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(200%);
+    opacity: 0;
+  }
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────────────────── */
+/* Skeleton loading states use Tailwind's animate-pulse; keep them visible
+   but static (no pulsing) for anyone who has asked the OS to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+    opacity: 0.7;
+  }
 }

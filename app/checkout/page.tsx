@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { Container } from '@/components/ui/Container'
 import { CheckoutClient } from '@/components/checkout/CheckoutClient'
+import { getCheckoutData } from '@/lib/checkout.db'
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
@@ -10,9 +12,25 @@ export const metadata: Metadata = {
   description: 'Complete your order — contact, shipping, and payment details.',
 }
 
+// Reads the live customer session, cart, and address book on every
+// request — checkout must always reflect the real, current signed-in
+// customer, never a cached/prerendered snapshot.
+export const dynamic = 'force-dynamic'
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  // Checkout requires a signed-in customer — getCheckoutData() derives the
+  // customer solely from requireCustomerSession() and throws if there's no
+  // valid session; that's the only signal this page trusts to decide who's
+  // checking out, never a query param or client-supplied id.
+  let checkout
+  try {
+    checkout = await getCheckoutData()
+  } catch {
+    redirect('/login?redirect=/checkout')
+  }
+
   return (
     <main id="main-content" className="pb-16 lg:pb-20">
       <Container className="pt-5 sm:pt-7">
@@ -43,7 +61,7 @@ export default function CheckoutPage() {
           </ol>
         </nav>
 
-        <CheckoutClient />
+        <CheckoutClient checkout={checkout} />
       </Container>
     </main>
   )

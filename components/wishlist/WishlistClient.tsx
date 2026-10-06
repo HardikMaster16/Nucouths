@@ -4,18 +4,37 @@
 // Nucouths — Wishlist Page (client)
 //
 // Reads the shared WishlistContext (lib/wishlist-context.tsx), which stores
-// only product ids, and resolves them against the existing product catalog
-// (lib/mock-data.ts) — the same data source /products uses. No separate
-// wishlist dataset.
+// only product ids. For a signed-in customer, the context already resolved
+// full product data server-side (products !== null). For a guest, the ids
+// live in localStorage and are resolved here against the real Prisma
+// catalog via lib/products.actions.ts's getProductsByIdsAction — never a
+// mock catalog. No separate wishlist dataset either way.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWishlist } from '@/lib/wishlist-context'
-import { products } from '@/lib/mock-data'
+import { getProductsByIdsAction } from '@/lib/products.actions'
 import { ProductGrid } from '@/components/products/ProductGrid'
 import { Button } from '@/components/ui/Button'
+import { Skeleton, ProductGridSkeleton } from '@/components/ui/Skeleton'
 import type { Product } from '@/lib/types'
+
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+
+function WishlistSkeleton() {
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-4 mb-8 sm:mb-10 border-b border-border pb-5 sm:pb-6" aria-hidden="true">
+        <Skeleton className="h-8 sm:h-9 w-32" />
+        <Skeleton className="h-4 w-16 shrink-0" />
+      </div>
+      {/* ProductGridSkeleton carries its own role="status" announcement — kept
+          outside the aria-hidden header above so it isn't suppressed. */}
+      <ProductGridSkeleton columns={4} count={4} />
+    </div>
+  )
+}
 
 function HeartOutlineIcon() {
   return (
@@ -52,22 +71,50 @@ function EmptyWishlist() {
 // ─── WishlistClient ───────────────────────────────────────────────────────────
 
 export function WishlistClient() {
-  const { productIds, isHydrated } = useWishlist()
+  const { productIds, products: dbProducts, isHydrated } = useWishlist()
+
+  // Guest path only — a signed-in customer's wishlist is already resolved
+  // server-side by the context (dbProducts !== null), so this never runs
+  // for them. Re-resolves whenever the guest's saved id list changes
+  // (toggle/remove) against the real Prisma catalog — never a mock one.
+  // Order is preserved by getProductsByIdsAction; an id that no longer
+  // matches a real product (deleted since it was saved) is silently
+  // dropped rather than crashing the page.
+  const [guestProducts, setGuestProducts] = useState<Product[] | null>(null)
+
+  useEffect(() => {
+    if (!isHydrated || dbProducts) return
+
+    if (productIds.length === 0) {
+      setGuestProducts([])
+      return
+    }
+
+    let cancelled = false
+    getProductsByIdsAction(productIds)
+      .then((resolved) => {
+        if (!cancelled) setGuestProducts(resolved)
+      })
+      .catch(() => {
+        if (!cancelled) setGuestProducts([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isHydrated, dbProducts, productIds])
 
   // Avoid briefly rendering "Your wishlist is empty" before the persisted
-  // wishlist has finished loading from localStorage.
-  if (!isHydrated) return null
+  // wishlist has finished loading (localStorage for a guest, the database
+  // for a signed-in customer) — or, for a guest, before the id list has
+  // finished resolving against the real catalog.
+  if (!isHydrated) return <WishlistSkeleton />
 
-  if (productIds.length === 0) {
+  const wishlistedProducts = dbProducts ?? guestProducts
+  if (wishlistedProducts === null) return <WishlistSkeleton />
+
+  if (wishlistedProducts.length === 0) {
     return <EmptyWishlist />
   }
-
-  // Resolve saved ids against the live catalog — preserves save order and
-  // silently drops any id that no longer matches a real product.
-  const productMap = new Map(products.map((p) => [p.id, p]))
-  const wishlistedProducts = productIds
-    .map((id) => productMap.get(id))
-    .filter((p): p is Product => Boolean(p))
 
   return (
     <div>

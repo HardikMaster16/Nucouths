@@ -1,0 +1,450 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  /// Nullable — legacy/seed rows may predate real auth; bcrypt hash for
+  /// every row created via customer signup or scripts/create-admin.ts.
+  passwordHash  String?
+  firstName     String
+  lastName      String
+  phone         String?
+  role          UserRole       @default(customer)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  addresses     Address[]
+  cartItems     CartItem[]
+  orders        Order[]
+  wishlistItems WishlistItem[]
+
+  @@index([email])
+}
+
+model Address {
+  id        String       @id @default(cuid())
+  userId    String
+  label     AddressLabel @default(Home)
+  firstName String
+  lastName  String
+  address   String
+  apartment String?
+  city      String
+  state     String
+  pinCode   String
+  country   String
+  phone     String
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String
+  /// The real value stored on Product.category (e.g. "men") — matches
+  /// lib/admin/taxonomy.ts's TaxonomyRow.slug, which is the literal category
+  /// string, not a separately-invented id.
+  slug      String       @unique
+  status    ActiveStatus @default(Active)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  products  Product[]
+}
+
+model Collection {
+  id          String       @id @default(cuid())
+  name        String
+  /// Matches lib/collections.ts's Collection.slug (e.g. "aw25").
+  slug        String       @unique
+  description String?
+  status      ActiveStatus @default(Active)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id               String           @id @default(cuid())
+  name             String
+  slug             String           @unique
+  brand            String?
+  categoryId       String?
+  /// Product type / department sub-label (lib/types.ts's Product.subcategory,
+  /// e.g. "tops") — plain string, not its own table, same as the frontend.
+  subcategory      String?
+  collectionId     String?
+  price            Decimal          @db.Decimal(10, 2)
+  compareAtPrice   Decimal?         @db.Decimal(10, 2)
+  currency         String           @default("INR")
+  description      String?
+  shortDescription String?
+  /// details/materials/care (lib/types.ts's ProductDetail) — bullet-point
+  /// copy, stored as string arrays rather than child tables since they're
+  /// never queried individually.
+  details          String[]         @default([])
+  materials        String[]         @default([])
+  care             String[]         @default([])
+  shipping         String?
+  returns          String?
+  badge            String?
+  tags             String[]         @default([])
+  inStock          Boolean          @default(true)
+  /// Homepage "New In" section toggle (app/page.tsx) — set from Admin →
+  /// Products. Independent of `badge`, which is display-only copy on the
+  /// PLP/PDP card, not a section-membership flag.
+  newIn            Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  orderItems       OrderItem[]
+  category         Category?        @relation(fields: [categoryId], references: [id])
+  collection       Collection?      @relation(fields: [collectionId], references: [id])
+  images           ProductImage[]
+  variants         ProductVariant[]
+  wishlistedBy     WishlistItem[]
+
+  @@index([categoryId])
+  @@index([collectionId])
+  @@index([newIn, createdAt])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  src       String
+  alt       String
+  /// images[0] in lib/types.ts's Product.images tuple.
+  isPrimary Boolean  @default(false)
+  /// lib/types.ts's Product.hoverImage — independent of isPrimary since a
+  /// product can have >2 images with the hover shot anywhere in the set.
+  isHover   Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id            String      @id @default(cuid())
+  productId     String
+  sku           String      @unique
+  color         String
+  colorHex      String
+  size          String
+  /// Inventory lives here and only here — lib/admin/product-service.ts's
+  /// updateVariantStock and lib/admin/inventory.ts both already treat
+  /// variant.stock as the single source of truth; a product-level total is
+  /// always summed from these rows, never stored separately.
+  stock         Int         @default(0)
+  priceOverride Decimal?    @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, color, size])
+  @@index([productId])
+}
+
+model Order {
+  id                String             @id @default(cuid())
+  orderNumber       String             @unique
+  userId            String?
+  status            OrderStatus        @default(Confirmed)
+  /// Separate from `status` (fulfillment lifecycle) — an order can be
+  /// Confirmed (customer intent recorded, stock reserved) while payment is
+  /// still Pending, since COD is always collected on delivery and an
+  /// online payment (UPI/card/netbanking) isn't captured until Razorpay
+  /// Checkout completes. Only lib/orders.actions.ts's
+  /// verifyRazorpayPaymentAction may set this to Paid, and only after
+  /// cryptographically verifying Razorpay's signature server-side — never
+  /// from a client-reported success flag. placeOrderAction itself never
+  /// sets this to anything but the default Pending.
+  paymentStatus     OrderPaymentStatus @default(Pending)
+  paymentMethod     PaymentMethod
+  currency          String             @default("INR")
+  /// Mirrors lib/cart-pricing.ts's CartTotals field-for-field — computed by
+  /// that same pricing function, never recalculated a second way in this
+  /// schema or its service layer.
+  originalSubtotal  Decimal            @db.Decimal(10, 2)
+  discount          Decimal            @default(0) @db.Decimal(10, 2)
+  /// Separate from `discount` (per-item sale markdown) — how much a coupon
+  /// (see `couponId`) took off this order, computed server-side by
+  /// lib/orders.actions.ts, never trusted from the client.
+  couponDiscount    Decimal            @default(0) @db.Decimal(10, 2)
+  payableSubtotal   Decimal            @db.Decimal(10, 2)
+  shipping          Decimal            @default(0) @db.Decimal(10, 2)
+  total             Decimal            @db.Decimal(10, 2)
+  /// Contact + shipping snapshot at purchase time — deliberately not a live
+  /// FK to Address, so an order keeps its original details even if the
+  /// customer later edits or deletes that saved address (same reasoning
+  /// lib/order-storage.ts's PlacedOrder already applies).
+  contactEmail      String
+  contactPhone      String
+  shipFirstName     String
+  shipLastName      String
+  shipAddress       String
+  shipApartment     String?
+  shipCity          String
+  shipState         String
+  shipPinCode       String
+  shipCountry       String
+  shipPhone         String
+  couponId          String?
+  /// Set once lib/orders.actions.ts's initializeRazorpayOrderAction creates
+  /// the corresponding Razorpay Order (for non-COD payment methods only).
+  /// Reused on a payment retry rather than creating a second Razorpay
+  /// order — see that action's own docstring.
+  razorpayOrderId   String?            @unique
+  /// Set only by verifyRazorpayPaymentAction, only after the Razorpay
+  /// signature has been cryptographically verified server-side — never
+  /// written from a client-reported success flag.
+  razorpayPaymentId String?            @unique
+  /// Set in the same update that transitions paymentStatus to Paid —
+  /// null until (and unless) that happens.
+  paidAt            DateTime?
+  /// Client-generated per-checkout-attempt token (lib/orders.actions.ts's
+  /// placeOrderAction), unique so a double-click or a retried request can
+  /// never create a second Order — a repeat with the same key returns the
+  /// original order instead of inserting again. Nullable/non-unique-null so
+  /// existing rows (seeded before this column existed) are unaffected.
+  idempotencyKey    String?            @unique
+  placedAt          DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  coupon            Coupon?            @relation(fields: [couponId], references: [id])
+  user              User?              @relation(fields: [userId], references: [id])
+  items             OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([placedAt])
+}
+
+model OrderItem {
+  id             String          @id @default(cuid())
+  orderId        String
+  productId      String?
+  variantId      String?
+  /// Snapshot fields, preserved even if the product/variant is later
+  /// renamed, repriced, or deleted — exactly what lib/types.ts's CartItem
+  /// already captures at add-to-cart time.
+  productName    String
+  productSlug    String
+  sku            String?
+  color          String
+  size           String
+  quantity       Int
+  unitPrice      Decimal         @db.Decimal(10, 2)
+  compareAtPrice Decimal?        @db.Decimal(10, 2)
+  itemTotal      Decimal         @db.Decimal(10, 2)
+  imageSrc       String
+  imageAlt       String
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product?        @relation(fields: [productId], references: [id])
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+/// A signed-in customer's saved-for-later products — lib/wishlist-context.tsx's
+/// localStorage-backed path is the pre-migration behavior, still used for
+/// guests (who have no User row to attach this to); an authenticated
+/// customer's wishlist persists here instead. One row per (user, product)
+/// pair. Both relations cascade on delete: unlike OrderItem (which snapshots
+/// historical purchase data and must survive a product being removed), a
+/// wishlist entry has no standalone significance once its product or owner
+/// is gone, so there's nothing worth preserving as a dangling reference —
+/// cascading is what "handle deleted/unavailable products safely" means
+/// here, rather than leaving a row the UI has to defensively filter out.
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+/// A signed-in customer's active cart — lib/cart-context.tsx's
+/// localStorage-backed path remains the guest behavior (no User row to
+/// attach to); an authenticated customer's cart persists here instead. One
+/// row per (user, variant) pair — ProductVariant, not Product, is the real
+/// purchasable unit (see its own docstring) — with quantity living on this
+/// row rather than one row per unit. Both relations cascade on delete: like
+/// WishlistItem, and unlike OrderItem (which snapshots a completed purchase
+/// and must survive later changes), an active cart line has no standalone
+/// significance once its variant or owner is gone — current price/
+/// availability/image are always re-read live from Product/ProductVariant
+/// (lib/cart.db.ts), never denormalized here, so cascading loses nothing
+/// worth keeping.
+model CartItem {
+  id        String         @id @default(cuid())
+  userId    String
+  variantId String
+  quantity  Int            @default(1)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, variantId])
+  @@index([userId])
+  @@index([variantId])
+}
+
+model Coupon {
+  id                String     @id @default(cuid())
+  /// Always uppercase — enforced by the service layer, same as
+  /// lib/cart-pricing.ts's Coupon.code.
+  code              String     @unique
+  type              CouponType
+  /// A percent (1–100) when type is percentage, or a currency amount when fixed.
+  value             Decimal    @db.Decimal(10, 2)
+  minOrderAmount    Decimal?   @db.Decimal(10, 2)
+  /// Only meaningful when type is percentage.
+  maxDiscountAmount Decimal?   @db.Decimal(10, 2)
+  usageLimit        Int?
+  usageCount        Int        @default(0)
+  startDate         DateTime
+  expiryDate        DateTime?
+  /// Manual on/off switch, independent of startDate/expiryDate — the admin-
+  /// facing Active/Scheduled/Expired/Disabled state is derived from all
+  /// three together (lib/banners.ts's isBannerVisible for the equivalent
+  /// Banner logic), never stored as its own column.
+  enabled           Boolean    @default(true)
+  currency          String     @default("INR")
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  orders            Order[]
+
+  @@index([code])
+}
+
+model Banner {
+  id           String         @id @default(cuid())
+  title        String
+  subtitle     String?
+  desktopImage String
+  /// Falls back to desktopImage on the storefront when null.
+  mobileImage  String?
+  buttonText   String?
+  buttonLink   String?
+  position     BannerPosition @default(hero)
+  status       ActiveStatus   @default(Active)
+  /// 1 = shown first — lib/banners.ts's getVisibleBanners sorts on this.
+  displayOrder Int            @default(1)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([position, status, displayOrder])
+}
+
+/// Exactly one row (id "singleton") — mirrors lib/admin/settings.ts's
+/// StoreSettings/StorefrontSettings/OrderSettings, merged into one table
+/// since they're always read/written together as "the store's config."
+/// Never stores API keys/secrets (see lib/admin/settings.ts's
+/// PaymentStatusRow — payment configuration is status-only, by design).
+model StoreSettings {
+  id                    String      @id @default("singleton")
+  storeName             String
+  storeEmail            String
+  storePhone            String?
+  storeAddress          String?
+  currency              String      @default("INR")
+  timeZone              String      @default("Asia/Kolkata")
+  storeStatus           StoreStatus @default(Open)
+  lowStockThreshold     Int         @default(3)
+  defaultShippingCharge Decimal     @default(0) @db.Decimal(10, 2)
+  freeShippingThreshold Decimal     @default(0) @db.Decimal(10, 2)
+  orderPrefix           String      @default("NCT")
+  updatedAt             DateTime    @updatedAt
+}
+
+/// Shared by Category, Collection, and Banner — the same plain on/off switch
+/// lib/admin/taxonomy.ts's TaxonomyStatus and lib/banners.ts's BannerStatus
+/// already use, reused here instead of three identical enums.
+enum ActiveStatus {
+  Active
+  Inactive
+}
+
+/// Matches lib/types.ts's OrderStatus string union exactly — @map preserves
+/// the frontend's literal string values (including the space in "Out for
+/// Delivery") as the actual stored/DB enum labels.
+enum OrderStatus {
+  Confirmed
+  Processing
+  Shipped
+  OutForDelivery @map("Out for Delivery")
+  Delivered
+  Cancelled
+}
+
+/// Matches lib/types.ts's PaymentMethod string union exactly.
+enum PaymentMethod {
+  upi
+  card
+  netbanking
+  cod
+}
+
+/// Order.paymentStatus — deliberately separate from OrderStatus (fulfillment).
+/// No code path sets Paid until a real payment gateway (Razorpay) confirms
+/// it; Failed/Refunded exist for that future integration to use.
+enum OrderPaymentStatus {
+  Pending
+  Paid
+  Failed
+  Refunded
+}
+
+/// Matches lib/types.ts's AddressLabel string union exactly.
+enum AddressLabel {
+  Home
+  Work
+  Other
+}
+
+/// Matches lib/cart-pricing.ts's CouponType string union exactly.
+enum CouponType {
+  percentage
+  fixed
+}
+
+/// Matches lib/banners.ts's BannerPosition string union exactly.
+enum BannerPosition {
+  hero
+  secondary
+}
+
+/// Matches lib/admin/settings.ts's StoreStatus string union exactly.
+enum StoreStatus {
+  Open
+  Maintenance
+}
+
+/// No auth is implemented yet (see AGENTS note above) — this exists so the
+/// eventual login system has somewhere to distinguish a storefront customer
+/// from an admin without a schema change.
+enum UserRole {
+  customer
+  admin
+}

@@ -6,13 +6,10 @@ import type { Metadata } from 'next'
 import { Container } from '@/components/ui/Container'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { ProductGrid } from '@/components/products/ProductGrid'
-import {
-  newInProducts,
-  bestSellers,
-  categoryBanners,
-  products,
-  socialPosts,
-} from '@/lib/mock-data'
+import { HeroBanner } from '@/components/home/HeroBanner'
+import { categoryBanners, socialPosts } from '@/lib/mock-data'
+import { getVisibleBannersFromDb } from '@/lib/banners.db'
+import { getCatalogProducts, getNewInProducts } from '@/lib/products.db'
 import type { SocialPost } from '@/lib/types'
 
 // ─── Page Metadata ─────────────────────────────────────────────────────────────
@@ -23,82 +20,11 @@ export const metadata: Metadata = {
     'Discover the new Autumn collection at Nucouths. Shop premium clothing for men and women — contemporary style meets thoughtful craftsmanship.',
 }
 
-// ─── Hero ─────────────────────────────────────────────────────────────────────
-
-function HeroSection() {
-  return (
-    <section
-      aria-label="New Autumn Collection — hero"
-      className="relative w-full overflow-hidden bg-[#18181b]"
-      style={{ minHeight: 'clamp(520px, 85vh, 800px)' }}
-    >
-      {/* Background image */}
-      <Image
-        src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=85"
-        alt="Nucouths Autumn / Winter 2025 — editorial campaign"
-        fill
-        priority
-        sizes="100vw"
-        className="object-cover object-[60%_20%] sm:object-center"
-      />
-
-      {/*
-        Localized overlay:
-        — Strong left gradient for text legibility
-        — Lighter overall vignette so the image reads clearly on the right
-      */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" aria-hidden="true" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" aria-hidden="true" />
-
-      {/* Content */}
-      <div className="relative h-full flex items-end">
-        <Container className="pb-14 sm:pb-18 lg:pb-24">
-          <div className="max-w-lg animate-fade-in">
-            <p className="text-[11px] font-sans font-semibold tracking-[0.2em] uppercase text-accent mb-4">
-              Autumn / Winter 2025
-            </p>
-            <h1 className="font-display text-[2.6rem] sm:text-5xl lg:text-[3.75rem] text-white leading-[1.05] tracking-tight mb-5">
-              Dressed for<br />
-              <em className="not-italic text-accent">Every Moment</em>
-            </h1>
-            <p className="text-[15px] sm:text-base text-white/65 font-sans leading-relaxed mb-8 max-w-sm">
-              Thoughtfully designed pieces that move with you through every occasion.
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/collections/new-in"
-                className="inline-flex items-center justify-center h-11 px-7 bg-accent text-white text-[11px] font-sans font-semibold tracking-[0.12em] uppercase hover:bg-accent-dark active:bg-accent-dark transition-colors duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              >
-                Shop New In
-              </Link>
-              <Link
-                href="/collections"
-                className="inline-flex items-center justify-center h-11 px-7 border border-white/35 text-white text-[11px] font-sans font-medium tracking-[0.12em] uppercase hover:border-white hover:bg-white/10 active:bg-white/20 transition-all duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              >
-                View Collections
-              </Link>
-            </div>
-          </div>
-        </Container>
-      </div>
-
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 right-8 hidden lg:flex flex-col items-center gap-2.5" aria-hidden="true">
-        <div className="relative w-px h-14 bg-white/20 overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1/2 bg-accent animate-[scrollLine_2s_ease-in-out_infinite]" />
-        </div>
-        <span
-          className="text-[9px] font-sans text-white/35 tracking-[0.25em] uppercase"
-          style={{ writingMode: 'vertical-lr' }}
-        >
-          Scroll
-        </span>
-      </div>
-    </section>
-  )
-}
+// Read live from Prisma on every request — same convention as
+// app/products/page.tsx and app/products/[slug]/page.tsx: catalog changes
+// (a new product, a badge edit) must show up immediately, not just after
+// the next build/redeploy.
+export const dynamic = 'force-dynamic'
 
 // ─── Trust / Feature Strip ────────────────────────────────────────────────────
 
@@ -325,31 +251,57 @@ function SocialGrid({ posts }: { posts: SocialPost[] }) {
 
 // ─── Home Page ─────────────────────────────────────────────────────────────────
 
-export default function HomePage() {
-  // Resolve product lists — fallback to first 4 all-products if filtered set is small
-  const newIn = newInProducts.length >= 4 ? newInProducts.slice(0, 4) : products.slice(0, 4)
-  const sellers = bestSellers.length >= 4 ? bestSellers.slice(0, 4) : products.slice(4, 8)
+export default async function HomePage() {
+  // Real database catalog — one query (lib/products.db.ts's
+  // getCatalogProducts, which itself reuses lib/admin/products.db.ts's
+  // productWithRelations include: images + variants + category +
+  // collection, no N+1), ordered by createdAt asc to match seed order —
+  // the same "featured/source order" the PLP already relies on.
+  const catalog = await getCatalogProducts()
+
+  // New In — Product.newIn rows only (lib/products.db.ts's
+  // getNewInProducts), newest first, admin-toggled per product
+  // (Admin → Products). No fallback padding: exactly what's flagged, or
+  // nothing.
+  const newIn = await getNewInProducts(4)
+
+  // "Best Sellers" is still the badge-based rule the former mock catalog
+  // used — Product.badge is a real, seeded column (prisma/schema.prisma),
+  // not invented here. Falls back to the general catalog when the
+  // badge-filtered list is too small to fill the section.
+  const bestSellerCandidates = catalog.filter((p) => !p.badge || p.badge === 'SALE')
+  const sellers = bestSellerCandidates.length >= 4 ? bestSellerCandidates.slice(0, 4) : catalog.slice(4, 8)
+
+  // Real database banner — the exact same Banner row Admin → Banners
+  // manages (lib/banners.db.ts's getVisibleBannersFromDb), read fresh on
+  // every request since this page is `dynamic = 'force-dynamic'` above.
+  const heroBanner = (await getVisibleBannersFromDb('hero'))[0]
 
   return (
     <main id="main-content">
       {/* 1. Hero */}
-      <HeroSection />
+      <HeroBanner banner={heroBanner} />
 
       {/* 2. Trust strip */}
       <FeatureStrip />
 
-      {/* 3. New In */}
-      <section aria-label="New In — latest arrivals" className="py-16 sm:py-20">
-        <Container>
-          <SectionHeading
-            title="New In"
-            subtitle="The latest additions to the collection"
-            viewAllHref="/collections/new-in"
-            viewAllLabel="View All New In"
-          />
-          <ProductGrid products={newIn} columns={4} priorityCount={4} />
-        </Container>
-      </section>
+      {/* 3. New In — omitted entirely if the catalog has nothing to show
+             yet (an empty database), rather than rendering ProductGrid's
+             loading-skeleton state permanently or falling back to mock
+             data. */}
+      {newIn.length > 0 && (
+        <section aria-label="New In — latest arrivals" className="py-16 sm:py-20">
+          <Container>
+            <SectionHeading
+              title="New In"
+              subtitle="Fresh arrivals, just in."
+              viewAllHref="/collections/new-in"
+              viewAllLabel="View All New In"
+            />
+            <ProductGrid products={newIn} columns={4} priorityCount={4} />
+          </Container>
+        </section>
+      )}
 
       {/* 4. Category banners */}
       <CategoryBannersSection />
@@ -357,18 +309,20 @@ export default function HomePage() {
       {/* 5. Editorial split */}
       <EditorialBanner />
 
-      {/* 6. Best Sellers */}
-      <section aria-label="Best Sellers" className="py-16 sm:py-20 bg-surface">
-        <Container>
-          <SectionHeading
-            title="Best Sellers"
-            subtitle="Our most-loved pieces, season after season"
-            viewAllHref="/collections/all"
-            viewAllLabel="Shop All"
-          />
-          <ProductGrid products={sellers} columns={4} />
-        </Container>
-      </section>
+      {/* 6. Best Sellers — same empty-catalog handling as New In above. */}
+      {sellers.length > 0 && (
+        <section aria-label="Best Sellers" className="py-16 sm:py-20 bg-surface">
+          <Container>
+            <SectionHeading
+              title="Best Sellers"
+              subtitle="Our most-loved pieces, season after season"
+              viewAllHref="/collections/all"
+              viewAllLabel="Shop All"
+            />
+            <ProductGrid products={sellers} columns={4} />
+          </Container>
+        </section>
+      )}
 
       {/* 7. Instagram / community */}
       <SocialGrid posts={socialPosts} />

@@ -17,11 +17,11 @@ import type { ProductDetail, ProductVariant } from './types'
 
 // ─── Common copy ─────────────────────────────────────────────────────────────
 
-const STANDARD_SHIPPING =
+export const STANDARD_SHIPPING =
   'Free standard shipping on orders above ₹2,999. Express delivery available at checkout. ' +
   'Estimated delivery: 3–5 business days for standard, 1–2 business days for express.'
 
-const STANDARD_RETURNS =
+export const STANDARD_RETURNS =
   'Free returns within 30 days of delivery. Items must be unworn, unwashed, and have all ' +
   'original tags attached. Final-sale items are not eligible for return.'
 
@@ -244,7 +244,7 @@ export const productDetails: ProductDetail[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1578768079052-aa76e52ff62e?w=1200&q=85',
+        src: 'https://images.unsplash.com/photo-1610901157620-340856d0a50f?w=1200&q=85',
         alt: 'Merino Ribbed Turtleneck — front view',
       },
     ],
@@ -317,7 +317,7 @@ export const productDetails: ProductDetail[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&q=85',
+        src: 'https://images.unsplash.com/photo-1543132220-7bc04a0e790a?w=1200&q=85',
         alt: 'Tailored Straight Trousers — front view',
       },
     ],
@@ -390,16 +390,16 @@ export const productDetails: ProductDetail[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1551489186-cf8726f514f8?w=1200&q=85',
+        src: 'https://images.unsplash.com/photo-1644483878395-858cd642538e?w=1200&q=85',
         alt: 'Oversized Cotton Shirt — front view',
       },
       {
-        src: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=1200&q=85',
+        src: 'https://images.unsplash.com/photo-1617019114583-affb34d1b3cd?w=1200&q=85',
         alt: 'Oversized Cotton Shirt — worn view',
       },
     ],
     hoverImage: {
-      src: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80',
+      src: 'https://images.unsplash.com/photo-1617019114583-affb34d1b3cd?w=800&q=80',
       alt: 'Oversized Cotton Shirt — worn view',
     },
     variants: mkVariants('p-005', [
@@ -462,7 +462,7 @@ export const productDetails: ProductDetail[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1601924638867-3a6de6b7a500?w=1200&q=85',
+        src: 'https://images.unsplash.com/photo-1609803384069-19f3e5a70e75?w=1200&q=85',
         alt: 'Cashmere Blend Scarf — product view',
       },
     ],
@@ -632,10 +632,17 @@ export function getAllProductSlugs(): string[] {
   return productDetails.map((p) => p.slug)
 }
 
+/** A variant at or below this count (but still in stock) reads as "low
+ *  stock" everywhere in the app (PDP, dashboard, admin) — the one
+ *  centralized threshold every stock-aware surface shares. Exposed so
+ *  /admin/settings can display the real value instead of a second,
+ *  invented one. */
+export const LOW_STOCK_THRESHOLD = 3
+
 /** Derive stock state from a variant's stock count. */
 export function variantStockState(stock: number): import('./types').StockState {
   if (stock <= 0) return 'sold-out'
-  if (stock <= 3) return 'low-stock'
+  if (stock <= LOW_STOCK_THRESHOLD) return 'low-stock'
   return 'in-stock'
 }
 

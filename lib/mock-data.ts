@@ -39,24 +39,27 @@ export const announcementMessages: AnnouncementMessage[] = [
 
 export const navItems: NavItem[] = [
   {
+    // Gender is a Product.category, not a named collection (see
+    // lib/product-filters.ts) — so these reuse the existing /products
+    // route + query params rather than a competing /collections/men route.
     label: 'Men',
-    href: '/collections/men',
+    href: '/products?category=men',
     children: [
-      { label: 'Tops & T-Shirts', href: '/collections/men/tops' },
-      { label: 'Trousers & Joggers', href: '/collections/men/trousers' },
-      { label: 'Outerwear', href: '/collections/men/outerwear' },
-      { label: 'Accessories', href: '/collections/men/accessories' },
+      { label: 'Tops & T-Shirts', href: '/products?category=men&subcategory=tops' },
+      { label: 'Trousers & Joggers', href: '/products?category=men&subcategory=trousers' },
+      { label: 'Outerwear', href: '/products?category=men&subcategory=outerwear' },
+      { label: 'Accessories', href: '/products?category=men&subcategory=accessories' },
     ],
   },
   {
     label: 'Women',
-    href: '/collections/women',
+    href: '/products?category=women',
     children: [
-      { label: 'Dresses & Skirts', href: '/collections/women/dresses' },
-      { label: 'Tops & Blouses', href: '/collections/women/tops' },
-      { label: 'Trousers & Jeans', href: '/collections/women/trousers' },
-      { label: 'Outerwear', href: '/collections/women/outerwear' },
-      { label: 'Accessories', href: '/collections/women/accessories' },
+      { label: 'Dresses & Skirts', href: '/products?category=women&subcategory=dresses' },
+      { label: 'Tops & Blouses', href: '/products?category=women&subcategory=tops' },
+      { label: 'Trousers & Jeans', href: '/products?category=women&subcategory=trousers' },
+      { label: 'Outerwear', href: '/products?category=women&subcategory=outerwear' },
+      { label: 'Accessories', href: '/products?category=women&subcategory=accessories' },
     ],
   },
   {
@@ -83,6 +86,7 @@ export const products: Product[] = [
     slug: 'structured-wool-blazer',
     category: 'women',
     subcategory: 'outerwear',
+    collection: 'Autumn / Winter 2025',
     price: 12999,
     currency: 'INR',
     badge: 'NEW',
@@ -100,7 +104,7 @@ export const products: Product[] = [
       },
     ],
     hoverImage: {
-      src: 'https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=800&q=80',
+      src: 'https://images.unsplash.com/photo-1615125990475-b318176a49cc?w=800&q=80',
       alt: 'Structured Wool Blazer — side view',
     },
     tags: ['blazer', 'wool', 'formal', 'autumn'],
@@ -111,6 +115,7 @@ export const products: Product[] = [
     slug: 'linen-wide-leg-trousers',
     category: 'women',
     subcategory: 'trousers',
+    collection: 'Resort Edit',
     price: 4499,
     compareAtPrice: 5999,
     currency: 'INR',
@@ -140,6 +145,7 @@ export const products: Product[] = [
     slug: 'merino-ribbed-turtleneck',
     category: 'men',
     subcategory: 'tops',
+    collection: 'Autumn / Winter 2025',
     price: 3999,
     currency: 'INR',
     badge: 'NEW',
@@ -152,12 +158,12 @@ export const products: Product[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1578768079052-aa76e52ff62e?w=800&q=80',
+        src: 'https://images.unsplash.com/photo-1610901157620-340856d0a50f?w=800&q=80',
         alt: 'Merino Ribbed Turtleneck — front view',
       },
     ],
     hoverImage: {
-      src: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?w=800&q=80',
+      src: 'https://images.unsplash.com/photo-1642886512785-b5fee9faad7f?w=800&q=80',
       alt: 'Merino Ribbed Turtleneck — styled view',
     },
     tags: ['merino', 'knitwear', 'turtleneck', 'autumn'],
@@ -168,6 +174,7 @@ export const products: Product[] = [
     slug: 'tailored-straight-trousers',
     category: 'men',
     subcategory: 'trousers',
+    collection: 'Essentials',
     price: 5499,
     currency: 'INR',
     inStock: true,
@@ -179,7 +186,7 @@ export const products: Product[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80',
+        src: 'https://images.unsplash.com/photo-1543132220-7bc04a0e790a?w=800&q=80',
         alt: 'Tailored Straight Trousers — front view',
       },
     ],
@@ -195,6 +202,7 @@ export const products: Product[] = [
     slug: 'oversized-cotton-shirt',
     category: 'women',
     subcategory: 'tops',
+    collection: 'Essentials',
     price: 2999,
     currency: 'INR',
     badge: 'LIMITED',
@@ -206,12 +214,12 @@ export const products: Product[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1551489186-cf8726f514f8?w=800&q=80',
+        src: 'https://images.unsplash.com/photo-1644483878395-858cd642538e?w=800&q=80',
         alt: 'Oversized Cotton Shirt — front view',
       },
     ],
     hoverImage: {
-      src: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80',
+      src: 'https://images.unsplash.com/photo-1617019114583-affb34d1b3cd?w=800&q=80',
       alt: 'Oversized Cotton Shirt — worn view',
     },
     tags: ['shirt', 'cotton', 'oversized', 'casual'],
@@ -222,6 +230,7 @@ export const products: Product[] = [
     slug: 'cashmere-blend-scarf',
     category: 'women',
     subcategory: 'accessories',
+    collection: 'Autumn / Winter 2025',
     price: 3499,
     currency: 'INR',
     inStock: true,
@@ -232,7 +241,7 @@ export const products: Product[] = [
     ],
     images: [
       {
-        src: 'https://images.unsplash.com/photo-1601924638867-3a6de6b7a500?w=800&q=80',
+        src: 'https://images.unsplash.com/photo-1609803384069-19f3e5a70e75?w=800&q=80',
         alt: 'Cashmere Blend Scarf',
       },
     ],
@@ -244,6 +253,7 @@ export const products: Product[] = [
     slug: 'quilted-overshirt-jacket',
     category: 'men',
     subcategory: 'outerwear',
+    collection: 'Autumn / Winter 2025',
     price: 7999,
     compareAtPrice: 9999,
     currency: 'INR',
@@ -273,6 +283,7 @@ export const products: Product[] = [
     slug: 'slip-midi-dress',
     category: 'women',
     subcategory: 'dresses',
+    collection: 'Resort Edit',
     price: 6499,
     currency: 'INR',
     badge: 'SOLD OUT',
@@ -310,7 +321,7 @@ export const categoryBanners: CategoryBanner[] = [
   {
     id: 'cat-men',
     label: 'Men',
-    href: '/collections/men',
+    href: '/products?category=men',
     cta: 'Shop Men',
     image: {
       src: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?w=900&q=80',
@@ -320,7 +331,7 @@ export const categoryBanners: CategoryBanner[] = [
   {
     id: 'cat-women',
     label: 'Women',
-    href: '/collections/women',
+    href: '/products?category=women',
     cta: 'Shop Women',
     image: {
       src: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=900&q=80',

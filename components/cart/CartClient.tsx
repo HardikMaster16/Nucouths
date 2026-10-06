@@ -4,9 +4,12 @@
 // Nucouths — Cart Page (client)
 //
 // Reads/writes the shared CartContext (lib/cart-context.tsx). Per-line stock
-// caps are looked up live from the existing product-detail data (not stored
-// on the cart item), so the quantity selector never lets a shopper exceed
-// real stock even if it changed since the item was added.
+// caps come from CartItem.stock — for a signed-in customer that's the live
+// ProductVariant.stock re-read from Prisma on every cart load/mutation
+// (lib/cart.db.ts), never a static/mock lookup; the quantity selector's
+// enforcement is a UX convenience either way, since the server independently
+// re-validates and caps stock on every cart/order mutation regardless of
+// what the client requests.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react'
@@ -16,19 +19,78 @@ import { useCart } from '@/lib/cart-context'
 import { Button } from '@/components/ui/Button'
 import { ImageWithFallback } from '@/components/ui/ImageWithFallback'
 import { QuantitySelector } from '@/components/product/QuantitySelector'
-import { getProductDetail, findVariant } from '@/lib/product-detail-data'
 import { calculateCartTotals, formatPrice, itemDiscountPercent } from '@/lib/cart-pricing'
 import { EmptyCart } from '@/components/cart/EmptyCart'
 import { OrderTotalsBreakdown } from '@/components/cart/OrderTotalsBreakdown'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { AlertIcon } from '@/components/admin/icons'
 import type { CartItem } from '@/lib/types'
+
+// ─── Error banner ─────────────────────────────────────────────────────────────
+// Same role="alert" pattern components/checkout/CheckoutClient.tsx already
+// uses for its "items no longer available" notice — surfaces the safe
+// message lib/cart-context.tsx's `error` carries from a failed cart
+// mutation (add/remove/quantity update), never a raw server error (see that
+// file's own docstring for why reading it here is safe).
+
+function CartErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="mb-6 border border-sale/30 bg-sale/5 text-sale rounded-sm p-3 flex items-start gap-2.5 text-sm font-sans"
+    >
+      <AlertIcon className="w-4 h-4 shrink-0 mt-0.5" />
+      <span className="flex-1">{message}</span>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+        className="shrink-0 text-current opacity-70 hover:opacity-100 text-xs font-sans font-medium uppercase tracking-wide focus-visible:outline-none"
+      >
+        Dismiss
+      </button>
+    </div>
+  )
+}
+
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+
+function CartSkeleton() {
+  return (
+    <div aria-hidden="true">
+      <div className="flex items-end justify-between gap-4 mb-8 sm:mb-10 border-b border-border pb-5 sm:pb-6">
+        <Skeleton className="h-8 sm:h-9 w-40" />
+        <Skeleton className="h-4 w-16 shrink-0" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] gap-6 md:gap-8 lg:gap-12 xl:gap-16 items-start">
+        <div className="flex flex-col gap-6">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex gap-4 sm:gap-5">
+              <Skeleton className="shrink-0 w-24 sm:w-28 md:w-32 aspect-[3/4] rounded-none" />
+              <div className="flex-1 flex flex-col gap-2.5 pt-1">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-4 w-1/4" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    </div>
+  )
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Live stock cap for a cart line, looked up from the current product data. */
+/** The quantity selector's cap — never below the line's current quantity,
+ *  so an already-in-cart quantity (e.g. added before stock dropped) is
+ *  never rendered as invalid, just unable to increase further. Falls back
+ *  to the current quantity (no further increase allowed) for a guest cart
+ *  line persisted before CartItem gained `stock`, rather than propagating
+ *  a NaN cap from missing localStorage data. */
 function getMaxQuantity(item: CartItem): number {
-  const product = getProductDetail(item.slug)
-  const variant = product ? findVariant(product.variants, item.color, item.size) : undefined
-  return variant ? Math.max(variant.stock, item.quantity) : item.quantity
+  return typeof item.stock === 'number' ? Math.max(item.stock, item.quantity) : item.quantity
 }
 
 // ─── Cart line item ───────────────────────────────────────────────────────────
@@ -155,11 +217,11 @@ function OrderSummary({
 // ─── CartClient ───────────────────────────────────────────────────────────────
 
 export function CartClient() {
-  const { items, itemCount, isHydrated, removeItem, updateQuantity } = useCart()
+  const { items, itemCount, isHydrated, removeItem, updateQuantity, error, clearError } = useCart()
 
   // Avoid briefly rendering "Your bag is empty" for a returning shopper
   // whose cart hasn't finished loading from localStorage yet.
-  if (!isHydrated) return null
+  if (!isHydrated) return <CartSkeleton />
 
   if (items.length === 0) {
     return <EmptyCart />
@@ -180,6 +242,8 @@ export function CartClient() {
           {itemCount === 1 ? 'item' : 'items'}
         </p>
       </div>
+
+      {error && <CartErrorBanner message={error} onDismiss={clearError} />}
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] gap-6 md:gap-8 lg:gap-12 xl:gap-16 items-start">
         <ul className="divide-y divide-border" aria-label="Items in your bag">

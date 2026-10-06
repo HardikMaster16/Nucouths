@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { normalizeSearchQuery } from '@/lib/product-filters'
 import type { NavItem } from '@/lib/types'
 
 interface MobileMenuProps {
@@ -31,6 +33,15 @@ function SearchIcon() {
 export function MobileMenu({ isOpen, onClose, navItems }: MobileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const router = useRouter()
+  const [query, setQuery] = useState('')
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const normalized = normalizeSearchQuery(query)
+    router.push(normalized ? `/search?q=${encodeURIComponent(normalized)}` : '/search')
+    onClose()
+  }
 
   // Focus trap & close on Escape
   useEffect(() => {
@@ -100,9 +111,8 @@ export function MobileMenu({ isOpen, onClose, navItems }: MobileMenuProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <span className="font-display text-lg tracking-widest text-text-primary uppercase">
-            Nucouths
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/text-logo.svg" alt="Nucouths" className="h-4 w-auto" />
           <button
             ref={closeButtonRef}
             onClick={onClose}
@@ -114,19 +124,22 @@ export function MobileMenu({ isOpen, onClose, navItems }: MobileMenuProps) {
         </div>
 
         {/* Search */}
-        <div className="px-5 py-3 border-b border-border">
+        <form onSubmit={handleSearchSubmit} role="search" className="px-5 py-3 border-b border-border">
           <div className="relative flex items-center">
             <span className="absolute left-3 text-text-secondary pointer-events-none">
               <SearchIcon />
             </span>
             <input
               type="search"
+              name="q"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search products..."
               className="w-full pl-9 pr-4 h-10 bg-surface text-sm font-sans text-text-primary placeholder:text-text-secondary border border-border focus:outline-none focus:border-text-primary transition-colors duration-200"
               aria-label="Search products"
             />
           </div>
-        </div>
+        </form>
 
         {/* Navigation links */}
         <nav aria-label="Mobile navigation" className="flex-1 overflow-y-auto py-2">

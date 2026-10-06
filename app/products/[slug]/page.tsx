@@ -2,13 +2,11 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { Container } from '@/components/ui/Container'
 import { ProductClient } from '@/components/product/ProductClient'
-import { getProductDetail, getAllProductSlugs } from '@/lib/product-detail-data'
+import { getProductDetailBySlug, getRelatedProductsFromDb } from '@/lib/products.db'
 
-// ─── Static params ────────────────────────────────────────────────────────────
-
-export function generateStaticParams() {
-  return getAllProductSlugs().map((slug) => ({ slug }))
-}
+// Read live from Prisma on every request — stock/price can change, and a
+// product created/edited in the admin panel must show up immediately.
+export const dynamic = 'force-dynamic'
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
@@ -18,7 +16,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const product = getProductDetail(slug)
+  const product = await getProductDetailBySlug(slug)
   if (!product) return { title: 'Product Not Found — Nucouths' }
 
   return {
@@ -36,8 +34,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params
-  const product = getProductDetail(slug)
+  const product = await getProductDetailBySlug(slug)
   if (!product) notFound()
+
+  // Real Prisma related products (lib/products.db.ts) — same
+  // category/collection, excluding this product, currently purchasable
+  // only. Computed server-side (Prisma is never reachable from
+  // ProductClient, a 'use client' component) and handed down as a prop.
+  const relatedProducts = await getRelatedProductsFromDb(product, 4)
 
   // Breadcrumb second level — prefer collection, fall back to category label
   const collectionLabel = product.collection ?? `${product.category.charAt(0).toUpperCase()}${product.category.slice(1)}`
@@ -80,7 +84,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </nav>
 
         {/* ── All interactive content (gallery + info + related) ── */}
-        <ProductClient product={product} />
+        <ProductClient product={product} relatedProducts={relatedProducts} />
 
       </Container>
     </main>

@@ -4,15 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { formatPrice } from '@/lib/cart-pricing'
-import { getPlacedOrder } from '@/lib/order-storage'
+import { getPlacedOrder, PAYMENT_METHOD_LABELS } from '@/lib/order-storage'
 import type { PlacedOrder } from '@/lib/order-storage'
-
-const PAYMENT_METHOD_LABELS: Record<PlacedOrder['paymentMethod'], string> = {
-  upi: 'UPI',
-  card: 'Credit / Debit Card',
-  netbanking: 'Net Banking',
-  cod: 'Cash on Delivery',
-}
 
 function CheckCircleIcon() {
   return (

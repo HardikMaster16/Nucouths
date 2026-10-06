@@ -35,22 +35,50 @@ const WAIST_GUIDE = [
 
 export function SizeGuide({ isOpen, onClose, category }: SizeGuideProps) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const isMen = category === 'men'
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-      setTimeout(() => closeRef.current?.focus(), 80)
-      return () => { document.body.style.overflow = '' }
-    }
-    document.body.style.overflow = ''
-  }, [isOpen])
-
+  // Lock body scroll, trap focus, close on Escape, restore focus on close —
+  // mirrors components/layout/MobileMenu.tsx's established pattern.
   useEffect(() => {
     if (!isOpen) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+
+    const previouslyFocused = document.activeElement as HTMLElement
+    document.body.style.overflow = 'hidden'
+    const t = setTimeout(() => closeRef.current?.focus(), 80)
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
+          'a, button, input, [tabindex]:not([tabindex="-1"])'
+        )
+        const first = focusableElements[0]
+        const last = focusableElements[focusableElements.length - 1]
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+      previouslyFocused?.focus()
+    }
   }, [isOpen, onClose])
 
   return (
@@ -68,6 +96,7 @@ export function SizeGuide({ isOpen, onClose, category }: SizeGuideProps) {
 
       {/* Modal */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Size Guide"

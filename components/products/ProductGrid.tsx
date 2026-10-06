@@ -1,5 +1,6 @@
 import React from 'react'
 import { ProductCard } from '@/components/products/ProductCard'
+import { ProductCardSkeleton } from '@/components/ui/Skeleton'
 import type { Product } from '@/lib/types'
 
 interface ProductGridProps {
@@ -16,16 +17,6 @@ const colClasses: Record<2 | 3 | 4, string> = {
   4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
 }
 
-function SkeletonCard() {
-  return (
-    <div className="flex flex-col gap-3 animate-pulse" aria-hidden="true">
-      <div className="aspect-[3/4] bg-surface" />
-      <div className="h-3 w-3/4 bg-surface rounded" />
-      <div className="h-3 w-1/3 bg-surface rounded" />
-    </div>
-  )
-}
-
 export function ProductGrid({
   products,
   columns = 4,
@@ -36,7 +27,7 @@ export function ProductGrid({
     return (
       <div className="grid gap-4 sm:gap-6" role="status" aria-label="Loading products">
         {[...Array(columns * 2)].map((_, i) => (
-          <SkeletonCard key={i} />
+          <ProductCardSkeleton key={i} />
         ))}
       </div>
     )

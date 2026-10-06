@@ -1,14 +1,26 @@
 import React from 'react'
 import type { ButtonVariant, ButtonSize } from '@/lib/types'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface SharedButtonProps {
   variant?: ButtonVariant
   size?: ButtonSize
   fullWidth?: boolean
   loading?: boolean
-  as?: 'button' | 'a'
-  href?: string
 }
+
+type ButtonAsButton = SharedButtonProps &
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    as?: 'button'
+    href?: undefined
+  }
+
+type ButtonAsAnchor = SharedButtonProps &
+  React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    as: 'a'
+    href: string
+  }
+
+type ButtonProps = ButtonAsButton | ButtonAsAnchor
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
@@ -34,38 +46,53 @@ export function Button({
   size = 'md',
   fullWidth = false,
   loading = false,
-  disabled,
   children,
   className = '',
   ...props
 }: ButtonProps) {
-  const isDisabled = disabled || loading
+  const classes = [
+    'inline-flex items-center justify-center gap-2',
+    'font-sans font-medium uppercase',
+    'transition-all duration-250',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+    'disabled:cursor-not-allowed',
+    variantClasses[variant],
+    sizeClasses[size],
+    fullWidth ? 'w-full' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const spinner = loading && (
+    <span
+      className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+      aria-hidden="true"
+    />
+  )
+
+  if (props.as === 'a') {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- discard the `as` discriminant, keep the rest as anchor attributes
+    const { as: _as, ...anchorProps } = props
+    return (
+      <a {...anchorProps} className={classes}>
+        {spinner}
+        {children}
+      </a>
+    )
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- discard the `as` discriminant, keep the rest as button attributes
+  const { as: _as, disabled, ...buttonProps } = props
 
   return (
     <button
-      {...props}
-      disabled={isDisabled}
-      className={[
-        'inline-flex items-center justify-center gap-2',
-        'font-sans font-medium uppercase',
-        'transition-all duration-250',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-        'disabled:cursor-not-allowed',
-        variantClasses[variant],
-        sizeClasses[size],
-        fullWidth ? 'w-full' : '',
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      {...buttonProps}
+      disabled={disabled || loading}
+      className={classes}
       aria-busy={loading}
     >
-      {loading && (
-        <span
-          className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
-          aria-hidden="true"
-        />
-      )}
+      {spinner}
       {children}
     </button>
   )

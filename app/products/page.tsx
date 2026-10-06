@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { Container } from '@/components/ui/Container'
 import { ProductsShell } from '@/components/products/ProductsShell'
-import { getFilteredProducts, categoryLabel } from '@/lib/product-filters'
+import { categoryLabel } from '@/lib/product-filters'
 import type { SortOption } from '@/lib/product-filters'
+import { getFilteredProductsFromDb } from '@/lib/products.db'
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,10 @@ export function generateMetadata(): Metadata {
       'Shop the full Nucouths collection. Premium fashion for men and women — contemporary style, superior fabrics, thoughtful craftsmanship.',
   }
 }
+
+// Read live from Prisma on every request — stock/price/catalog changes must
+// show up immediately, not just after the next build.
+export const dynamic = 'force-dynamic'
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -41,8 +46,8 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const minPrice    = num('minPrice')
   const maxPrice    = num('maxPrice')
 
-  // Run filter logic server-side (swap for async API call when backend is ready)
-  const result = getFilteredProducts({ category, subcategory, sort, badge, size, color, minPrice, maxPrice })
+  // Run filter logic server-side against the live database.
+  const result = await getFilteredProductsFromDb({ category, subcategory, sort, badge, size, color, minPrice, maxPrice })
 
   const title = categoryLabel(category, badge)
 

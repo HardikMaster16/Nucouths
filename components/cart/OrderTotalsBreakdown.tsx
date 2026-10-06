@@ -3,13 +3,20 @@ import { formatPrice, FREE_SHIPPING_THRESHOLD } from '@/lib/cart-pricing'
 import type { CartTotals } from '@/lib/cart-pricing'
 
 /** Shared Subtotal/Discount/Shipping/Total block — used by /cart and
- *  /checkout so the two never present numbers differently. */
+ *  /checkout so the two never present numbers differently. `couponCode`/
+ *  `couponDiscount` are optional and only ever passed by /checkout (see
+ *  lib/checkout-coupon.actions.ts) — every other caller renders exactly as
+ *  before. */
 export function OrderTotalsBreakdown({
   currency,
   totals,
+  couponCode,
+  couponDiscount,
 }: {
   currency: string
   totals: CartTotals
+  couponCode?: string
+  couponDiscount?: number
 }) {
   const { originalSubtotal, discount, shipping, total, amountToFreeShipping } = totals
 
@@ -27,6 +34,13 @@ export function OrderTotalsBreakdown({
           <div className="flex items-center justify-between">
             <span className="text-text-secondary">Discount</span>
             <span className="text-sale font-medium">−{formatPrice(discount, currency)}</span>
+          </div>
+        )}
+
+        {couponCode && couponDiscount !== undefined && couponDiscount > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-text-secondary">Coupon ({couponCode})</span>
+            <span className="text-sale font-medium">−{formatPrice(couponDiscount, currency)}</span>
           </div>
         )}
 
