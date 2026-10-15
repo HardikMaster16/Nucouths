@@ -21,19 +21,16 @@
 //      plain string, not typed as OrderStatus, because a raw POST to this
 //      action isn't bound by TypeScript at runtime; this is the actual
 //      runtime enforcement, not the type annotation.
-//   4. Writes a single field (Order.status) — no ProductVariant.stock
-//      deduction/restoration here (out of scope for this task; see the
-//      module docstring in lib/admin/orders.db.ts) and no other related
-//      record needs updating alongside it, so this transaction has exactly
-//      one statement in it — wrapped in $transaction anyway per the task's
-//      requirement, and so a future extension (e.g. stock adjustment on
-//      cancellation) can't accidentally land outside the atomic boundary.
+//   4. Delegates the actual write to lib/admin/orders.db.ts's
+//      updateOrderStatusInDb — see that function's docstring for the
+//      single transaction it runs (the status update plus, only on a
+//      genuine transition into Cancelled, the matching ProductVariant.stock
+//      restoration) and the atomic-claim shape that makes the restoration
+//      idempotent under a race or a retry.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Prisma } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
 import { requireAdminSession } from './auth/admin-session.actions'
-import { dbOrderToAdminDetail, orderWithRelations, TO_PRISMA_ORDER_STATUS } from './orders.db'
+import { dbOrderToAdminDetail, updateOrderStatusInDb } from './orders.db'
 import { ALL_ORDER_STATUSES } from './orders'
 import type { AdminOrderDetail } from './orders'
 import type { OrderStatus } from '@/lib/types'
@@ -50,18 +47,9 @@ export async function updateOrderStatusAction(orderNumber: string, status: strin
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) =>
-      tx.order.update({
-        where: { orderNumber },
-        data: { status: TO_PRISMA_ORDER_STATUS[status] },
-        include: orderWithRelations,
-      })
-    )
+    const updated = await updateOrderStatusInDb(orderNumber, status)
     return dbOrderToAdminDetail(updated)
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-      throw new Error('Order not found.')
-    }
     throw err instanceof Error ? err : new Error('Could not update order status.')
   }
 }

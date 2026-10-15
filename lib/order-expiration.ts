@@ -10,6 +10,16 @@
 // Razorpay) — expiring one would incorrectly cancel a perfectly normal,
 // still-in-progress order and release stock that's actually spoken for.
 //
+// An expired order becomes fully terminal — paymentStatus: Failed AND
+// status: Cancelled, written together in expireOneOrder's one atomic
+// claim below. Status used to stay at Confirmed, which left an expired
+// order looking exactly like any other live order to lib/admin/
+// orders.db.ts's updateOrderStatusInDb: an admin cancelling it later would
+// pass that function's own `status != 'Cancelled'` claim guard and restore
+// the already-released stock a second time. Claiming status: Cancelled
+// here means that guard now rejects it like any other already-cancelled
+// order, with no change needed on the cancellation side.
+//
 // Order age: this schema has no separate "createdAt" — Order.placedAt
 // (@default(now()), set once at creation, never updated) already is that
 // timestamp, so it's reused as-is rather than adding a redundant field.
@@ -77,29 +87,50 @@ export function getPendingOrderExpiryMinutes(): number {
  *   - paymentStatus: 'Pending' — the only state this ever touches.
  *   - paymentMethod not 'cod' — COD's Pending is a normal, long-lived
  *     "unpaid until delivery" state, not an abandoned checkout.
- *   - placedAt older than the cutoff — the configured expiry window.
- *   - razorpayOrderId not null — a genuinely abandoned online-payment
- *     checkout always has one (CheckoutClient calls
- *     initializeRazorpayOrderAction immediately after placeOrderAction
- *     succeeds, for every non-COD order). This is what keeps this sweep
- *     from ever touching pre-existing/legacy Order rows that predate
- *     Razorpay integration entirely and whose paymentStatus is simply a
+ *   - status: 'Confirmed' — an order whose fulfillment has progressed at
+ *     all obviously wasn't abandoned. This is what keeps this sweep from
+ *     ever touching pre-existing/legacy Order rows that predate Razorpay
+ *     integration entirely and whose paymentStatus is simply a
  *     migration-default artifact, not a real payment state — verified the
  *     hard way against this repo's own seed data, which has real
- *     Delivered/Shipped orders sitting at paymentStatus=Pending purely
- *     because that column didn't exist when they were created.
- *   - status: 'Confirmed' — an order whose fulfillment has progressed at
- *     all obviously wasn't abandoned. Applied together with the
- *     razorpayOrderId check above for defense in depth — razorpayOrderId
- *     is the more direct, purely technical signal (no inference about
- *     what a historical row "should" mean), but neither alone was enough
- *     to catch every legacy row this codebase's own seed data turned up. */
+ *     Delivered/Shipped/Cancelled orders sitting at paymentStatus=Pending
+ *     or Failed purely because those columns didn't exist when they were
+ *     created; none of them is ever 'Confirmed'.
+ *   - placedAt older than the cutoff — the configured expiry window.
+ *
+ *   razorpayOrderId is deliberately NOT part of this filter. A null
+ *   razorpayOrderId does not mean "not really an online-payment checkout"
+ *   — it means initializeRazorpayOrderAction (called immediately after
+ *   placeOrderAction, see CheckoutClient) never got far enough to write
+ *   one: a dropped connection, a closed tab, or Razorpay's own order-
+ *   creation API call failing. That order already holds reserved stock
+ *   (placeOrderAction decrements it before payment is ever attempted) and
+ *   is just as abandoned as one that made it to Checkout and was never
+ *   paid — requiring razorpayOrderId here previously meant it could never
+ *   be reclaimed, a permanent stock leak. The placedAt + status +
+ *   paymentStatus + paymentMethod conditions above already uniquely
+ *   identify an abandoned online-payment checkout without it.
+ *
+ *   No separate grace period was added for the brief window between
+ *   placeOrderAction creating the order and initializeRazorpayOrderAction
+ *   writing its razorpayOrderId: CheckoutClient calls the latter
+ *   synchronously, in the same submit handler, immediately after the
+ *   former resolves — that gap is two sequential HTTP round trips plus one
+ *   Razorpay API call, realistically sub-second to a few seconds even
+ *   under poor network conditions, never minutes. PENDING_ORDER_EXPIRY_
+ *   MINUTES (default 30, see getPendingOrderExpiryMinutes below) already
+ *   exceeds that by orders of magnitude, and the cron sweep itself only
+ *   runs every 5–15 minutes (see DEPLOYMENT.md), so the earliest an order
+ *   could even be scanned is well after initialization would have
+ *   completed or definitively failed. An operator who configures an
+ *   extremely small PENDING_ORDER_EXPIRY_MINUTES (sub-minute) could in
+ *   theory reintroduce this race — that's a pre-existing misconfiguration
+ *   risk of the threshold itself, not something specific to this check. */
 function eligibilityFilter(cutoff: Date): Prisma.OrderWhereInput {
   return {
     paymentStatus: 'Pending',
     paymentMethod: { not: 'cod' },
     status: 'Confirmed',
-    razorpayOrderId: { not: null },
     placedAt: { lt: cutoff },
   }
 }
@@ -117,6 +148,18 @@ export type ExpireOrderOutcome =
  *      stale/racing candidate can never be mis-expired. If this matches
  *      zero rows (already Paid, already expired by a concurrent sweep, or
  *      no longer eligible), everything below is skipped — no side effects.
+ *
+ *      Sets status to Cancelled in the SAME write as paymentStatus to
+ *      Failed — an expired, never-paid non-COD checkout is a terminal,
+ *      abandoned order, not a live Confirmed one, and leaving status at
+ *      Confirmed left it looking like any other active order to
+ *      lib/admin/orders.db.ts's updateOrderStatusInDb, whose own atomic
+ *      claim only guards on `status != 'Cancelled'`. An admin cancelling
+ *      such an order would pass that guard and restore its stock a SECOND
+ *      time, on top of the restoration below — setting status to
+ *      Cancelled here closes that gap for free: updateOrderStatusInDb's
+ *      existing guard now rejects it like any other already-Cancelled
+ *      order, with no change needed on that side.
  *   2. Re-reads the now-claimed order WITH its OrderItems (the immutable
  *      purchase-time snapshot — never the current cart, never current
  *      catalog quantities) to know exactly what to restore.
@@ -133,12 +176,13 @@ export type ExpireOrderOutcome =
  *
  * Idempotent by construction: a second call for the same order (retried
  * sweep, or two concurrent sweeps racing each other) finds step 1 already
- * failed (order no longer Pending) and does nothing further. */
+ * failed (order no longer Pending, and now also no longer Confirmed) and
+ * does nothing further. */
 async function expireOneOrder(orderId: string, cutoff: Date): Promise<ExpireOrderOutcome> {
   return prisma.$transaction(async (tx) => {
     const claim = await tx.order.updateMany({
       where: { id: orderId, ...eligibilityFilter(cutoff) },
-      data: { paymentStatus: 'Failed' },
+      data: { paymentStatus: 'Failed', status: 'Cancelled' },
     })
     if (claim.count === 0) return { claimed: false }
 

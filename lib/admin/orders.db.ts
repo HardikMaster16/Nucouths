@@ -1,10 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Nucouths Admin — Order Reads (Prisma)
+// Nucouths Admin — Order Reads & Writes (Prisma)
 //
-// Server-only reads backing /admin/orders and /admin/orders/[id]. Imported
+// Server-only reads backing /admin/orders and /admin/orders/[id], plus the
+// one write (updateOrderStatusInDb) behind the status editor there. Imported
 // only from those Server Components and from lib/admin/orders.actions.ts's
-// Server Action — never from a 'use client' component, so Prisma is never
-// pulled into a browser bundle.
+// Server Action, which calls requireAdminSession() before ever reaching this
+// file — never from a 'use client' component, so Prisma is never pulled into
+// a browser bundle.
 //
 // OrderItem already carries its own historical snapshot columns
 // (productName, sku, color, size, unitPrice, itemTotal, imageSrc/imageAlt —
@@ -21,6 +23,13 @@
 // value. TO_PRISMA_ORDER_STATUS / FROM_PRISMA_ORDER_STATUS translate between
 // them, the same mapping prisma/seed.ts's ORDER_STATUS_MAP already uses for
 // the identical reason.
+//
+// updateOrderStatusInDb's stock-restoration-on-cancel logic (and the
+// concurrency reasoning behind its atomic claim-then-restore shape) mirrors
+// lib/order-expiration.ts's expireOneOrder, which already solves the exact
+// same problem — releasing stock reserved by placeOrderAction's decrement —
+// for a different trigger (an abandoned Pending order expiring, vs an admin
+// explicitly cancelling one here).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma'
@@ -184,4 +193,97 @@ export async function getAdminOrderDetail(orderNumber: string): Promise<AdminOrd
   await requireAdminSession()
   const order = await prisma.order.findUnique({ where: { orderNumber }, include: orderWithRelations })
   return order ? dbOrderToAdminDetail(order) : undefined
+}
+
+/** Writes the order's new status and, only when this is the specific
+ *  transition INTO Cancelled from a non-Cancelled (stock-consuming) status,
+ *  restores every OrderItem's quantity back onto its ProductVariant.stock —
+ *  the inverse of the decrement placeOrderAction made at purchase time —
+ *  and releases one Coupon.usageCount if the order consumed one, the
+ *  inverse of consumeCouponOrThrow's increment. Does NOT call
+ *  requireAdminSession() itself — the one caller, lib/admin/
+ *  orders.actions.ts's updateOrderStatusAction, already does so before
+ *  this is ever reached; this split (same as expireOneOrder living apart
+ *  from the admin-authenticated callers that might one day trigger
+ *  something similar) is what lets this be exercised directly in a
+ *  standalone script/test without faking a Next.js request's cookies().
+ *
+ *  Everything below runs in one transaction:
+ *    1. Atomically claims the transition — `UPDATE "Order" SET status = ?
+ *       WHERE orderNumber = ? [AND status != 'Cancelled']`, the conditional
+ *       clause applying only when the target is Cancelled. Two concurrent
+ *       calls for the same order (a race, or a retried request) serialize
+ *       on Postgres's row lock; only the first still matches the WHERE
+ *       clause by the time it runs, so a second call can never also see
+ *       claim.count === 1 and double-restore — the same claim-then-restore
+ *       shape lib/order-expiration.ts's expireOneOrder already uses for
+ *       the identical reason. Transitions to any other target status are
+ *       unrestricted, exactly as before this change.
+ *    2. Re-reads the order WITH its OrderItems to return (and, if claimed,
+ *       to know exactly what to restore) — if nothing matches, the order
+ *       doesn't exist at all.
+ *    3. Only when claim.count === 1 (a genuine, newly-claimed transition
+ *       into Cancelled — never on an order that was already Cancelled),
+ *       increments each item's variant by its own `quantity` with a plain
+ *       additive `{ increment }` update — race-free by construction, never
+ *       a read-check-write. An item whose variantId is already null (this
+ *       schema's OrderItem.variantId FK is ON DELETE SET NULL — see
+ *       prisma/schema.prisma) has no row left to restore stock to and is
+ *       skipped, same handling as expireOneOrder.
+ *    4. Still only when claim.count === 1, releases order.couponId's usage
+ *       by exactly 1 — the same atomic, zero-floor-guarded
+ *       `usageCount: { gt: 0 }` conditional update expireOneOrder already
+ *       uses, so this can never go negative. order.couponId is already
+ *       null here if the Coupon row itself was since deleted (ON DELETE
+ *       SET NULL), which this skips the same way a deleted variant is
+ *       skipped above — there is no usage left to release on a coupon
+ *       that no longer exists.
+ *  Gating both the stock restoration and the coupon release on the SAME
+ *  claim.count === 1 means an order expiration already got to first (which
+ *  now also claims status: Cancelled — see lib/order-expiration.ts) leaves
+ *  this entire block unreached: no double stock restoration and no double
+ *  coupon release.
+ *  A failure at any step rolls back the status change along with every
+ *  increment/release already applied in this call — there is no partial
+ *  restoration. */
+export async function updateOrderStatusInDb(orderNumber: string, status: OrderStatus): Promise<DbOrderWithRelations> {
+  const targetStatus = TO_PRISMA_ORDER_STATUS[status]
+  const isCancelling = targetStatus === 'Cancelled'
+
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const claim = await tx.order.updateMany({
+      where: isCancelling ? { orderNumber, status: { not: 'Cancelled' } } : { orderNumber },
+      data: { status: targetStatus },
+    })
+
+    const order = await tx.order.findUnique({ where: { orderNumber }, include: orderWithRelations })
+    if (!order) throw new Error('Order not found.')
+
+    // claim.count === 0 here only happens when isCancelling and the order
+    // was already Cancelled — a no-op, not an error, and stock/coupon usage
+    // must not be restored again.
+    if (isCancelling && claim.count === 1) {
+      for (const item of order.items) {
+        if (!item.variantId) continue
+        await tx.productVariant.update({
+          where: { id: item.variantId },
+          data: { stock: { increment: item.quantity } },
+        })
+      }
+
+      if (order.couponId) {
+        await tx.coupon.updateMany({
+          where: {
+            id: order.couponId,
+            usageCount: { gt: 0 },
+          },
+          data: {
+            usageCount: { decrement: 1 },
+          },
+        })
+      }
+    }
+
+    return order
+  })
 }
