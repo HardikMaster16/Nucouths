@@ -6,8 +6,44 @@ Copy `.env.example` to `.env` and fill in real values — see that file for what
 each variable does, and whether it's server-only or safe to expose. Never
 commit `.env`. Required in production: `DATABASE_URL`,
 `CUSTOMER_SESSION_SECRET`, `ADMIN_SESSION_SECRET`, `RAZORPAY_KEY_ID`,
-`RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `CRON_SECRET`. Optional:
+`RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `CRON_SECRET`,
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Optional:
 `PENDING_ORDER_EXPIRY_MINUTES` (defaults to 30).
+
+## Admin image uploads (Supabase Storage)
+
+Admin-uploaded product and banner images (the "Choose a file…" controls in
+the product and banner admin forms) are stored in Supabase Storage, not on
+Hostinger's local disk — a Node Web App's filesystem doesn't survive a
+redeploy, so anything written to `public/uploads/` during a request would
+404 for every other visitor and vanish on the next deploy.
+
+One-time setup, in the Supabase dashboard for the same project `DATABASE_URL`
+points at (or a different one — Storage doesn't have to live with the
+database):
+
+1. **Storage -> New bucket** — name it `product-images`, toggle **Public
+   bucket** on. (A different name works too; update
+   `IMAGE_STORAGE_BUCKET` in `lib/admin/supabase-storage.ts` to match.)
+2. **Project Settings -> API** — copy the **Project URL** into
+   `SUPABASE_URL` and the **service_role** secret key into
+   `SUPABASE_SERVICE_ROLE_KEY`.
+
+With both set, uploading an image through the admin panel uploads it
+directly to that bucket and saves its public URL on the product/banner
+record — no manual file copy to the server and no redeploy needed for new
+product images to go live.
+
+Existing rows created before this change still point at `/uploads/...`
+paths that 404 in production. If the original files still exist on your
+machine under `public/uploads/products/`/`public/uploads/banners/`, migrate
+them to Supabase and repoint those rows in one pass with:
+
+```
+npm run migrate:local-uploads-to-supabase
+```
+
+Safe to re-run; it skips any row whose local file it can't find.
 
 With `NODE_ENV=production`, a missing session secret or a Razorpay key
 whose mode (`rzp_test_`/`rzp_live_`) doesn't match the environment makes the

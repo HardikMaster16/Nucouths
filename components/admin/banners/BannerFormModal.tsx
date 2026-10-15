@@ -68,6 +68,10 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [fileError, setFileError] = useState<{ desktop?: string; mobile?: string }>({})
   const [uploadingFields, setUploadingFields] = useState<Record<string, boolean>>({})
+  // Tracks "this field's value came from a just-finished file upload" for
+  // the "File uploaded" label below — the URL itself is now an opaque
+  // Supabase Storage URL, not a recognizable /uploads/... path.
+  const [uploadedFields, setUploadedFields] = useState<Record<string, boolean>>({})
   // Local blob: preview shown while a file is mid-upload — never the value
   // written back via patch(); the committed field only ever becomes the
   // real /uploads/banners/... URL the server returns, so a half-finished
@@ -122,6 +126,11 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
     if (submitError) setSubmitError(null)
   }
 
+  function handleUrlChange(field: 'desktopImage' | 'mobileImage', value: string) {
+    patch({ [field]: value } as Partial<BannerFormValues>)
+    setUploadedFields((prev) => (field in prev ? omitKey(prev, field) : prev))
+  }
+
   async function handleFileSelect(field: 'desktopImage' | 'mobileImage', file: File | undefined) {
     const key = field === 'desktopImage' ? 'desktop' : 'mobile'
     if (!file) return
@@ -140,6 +149,7 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
       formData.append('file', file)
       const { url } = await uploadBannerImageAction(formData)
       patch({ [field]: url } as Partial<BannerFormValues>)
+      setUploadedFields((prev) => ({ ...prev, [field]: true }))
     } catch (err) {
       setFileError((prev) => ({
         ...prev,
@@ -242,7 +252,7 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
                     inputMode="url"
                     placeholder="https://…"
                     value={values.desktopImage.startsWith('data:') ? '' : values.desktopImage}
-                    onChange={(e) => patch({ desktopImage: e.target.value })}
+                    onChange={(e) => handleUrlChange('desktopImage', e.target.value)}
                     onBlur={() => setTouched((p) => ({ ...p, desktopImage: true }))}
                     aria-invalid={invalid('desktopImage')}
                     className={fieldInputClass(invalid('desktopImage'))}
@@ -257,7 +267,7 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
                   >
                     {uploadingFields.desktopImage ? 'Uploading…' : 'Choose a file…'}
                   </button>
-                  {!uploadingFields.desktopImage && values.desktopImage.startsWith('/uploads/') && (
+                  {!uploadingFields.desktopImage && uploadedFields.desktopImage && (
                     <span className="text-[11px] font-sans text-text-secondary">File uploaded</span>
                   )}
                   <input
@@ -288,7 +298,7 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
                     inputMode="url"
                     placeholder="Optional — falls back to desktop image"
                     value={values.mobileImage.startsWith('data:') ? '' : values.mobileImage}
-                    onChange={(e) => patch({ mobileImage: e.target.value })}
+                    onChange={(e) => handleUrlChange('mobileImage', e.target.value)}
                     className={fieldInputClass(false)}
                   />
                 </FormField>
@@ -301,7 +311,7 @@ export function BannerFormModal({ banner, nextDisplayOrder, onClose, onSaved }: 
                   >
                     {uploadingFields.mobileImage ? 'Uploading…' : 'Choose a file…'}
                   </button>
-                  {!uploadingFields.mobileImage && values.mobileImage.startsWith('/uploads/') && (
+                  {!uploadingFields.mobileImage && uploadedFields.mobileImage && (
                     <span className="text-[11px] font-sans text-text-secondary">File uploaded</span>
                   )}
                   <input

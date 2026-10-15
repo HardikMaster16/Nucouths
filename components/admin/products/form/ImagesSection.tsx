@@ -57,6 +57,11 @@ export function ImagesSection({ images, errors, showErrors, onImagesChange }: Im
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({})
   const [uploadingKeys, setUploadingKeys] = useState<Record<string, boolean>>({})
+  // Tracks "this row's src came from a just-finished file upload" for the
+  // "File uploaded" label below — the URL itself is now an opaque Supabase
+  // Storage URL, not a recognizable /uploads/... path, so it can't be
+  // derived from img.src the way the old local-filesystem URLs allowed.
+  const [uploadedKeys, setUploadedKeys] = useState<Record<string, boolean>>({})
   // Local blob: preview shown while a file is mid-upload — never the value
   // written back via onImagesChange; the committed src only ever becomes
   // the real /uploads/products/... URL the server returns (or stays empty
@@ -75,6 +80,11 @@ export function ImagesSection({ images, errors, showErrors, onImagesChange }: Im
     onImagesChange(images.map((img) => (img.key === key ? { ...img, ...patch } : img)))
   }
 
+  function handleUrlChange(key: string, value: string) {
+    updateImage(key, { src: value })
+    setUploadedKeys((prev) => (key in prev ? omitKey(prev, key) : prev))
+  }
+
   function addImage() {
     onImagesChange([...images, emptyImageDraft()])
   }
@@ -90,6 +100,7 @@ export function ImagesSection({ images, errors, showErrors, onImagesChange }: Im
     const next = images.filter((img) => img.key !== key)
     onImagesChange(next.length > 0 ? next : [emptyImageDraft()])
     clearFileError(key)
+    setUploadedKeys((prev) => (key in prev ? omitKey(prev, key) : prev))
     setLocalPreviews((prev) => {
       if (!(key in prev)) return prev
       URL.revokeObjectURL(prev[key])
@@ -120,6 +131,7 @@ export function ImagesSection({ images, errors, showErrors, onImagesChange }: Im
       formData.append('file', file)
       const { url } = await uploadProductImageAction(formData)
       updateImage(key, { src: url })
+      setUploadedKeys((prev) => ({ ...prev, [key]: true }))
     } catch (err) {
       setFileErrors((prev) => ({
         ...prev,
@@ -176,7 +188,7 @@ export function ImagesSection({ images, errors, showErrors, onImagesChange }: Im
                     inputMode="url"
                     placeholder="https://…"
                     value={img.src.startsWith('data:') ? '' : img.src}
-                    onChange={(e) => updateImage(img.key, { src: e.target.value })}
+                    onChange={(e) => handleUrlChange(img.key, e.target.value)}
                     aria-invalid={!!fieldErrors?.src}
                     className={fieldInputClass(!!fieldErrors?.src)}
                   />
@@ -191,7 +203,7 @@ export function ImagesSection({ images, errors, showErrors, onImagesChange }: Im
                   >
                     {uploadingKeys[img.key] ? 'Uploading…' : 'Choose a file…'}
                   </button>
-                  {!uploadingKeys[img.key] && img.src.startsWith('/uploads/') && (
+                  {!uploadingKeys[img.key] && uploadedKeys[img.key] && (
                     <span className="text-[11px] font-sans text-text-secondary">File uploaded</span>
                   )}
                   <input

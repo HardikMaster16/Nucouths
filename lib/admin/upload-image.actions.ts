@@ -1,26 +1,17 @@
 'use server'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Nucouths Admin — Product Image Upload (local filesystem)
+// Nucouths Admin — Product Image Upload (Supabase Storage)
 //
 // Backs the "Choose a file…" control in components/admin/products/form/
-// ImagesSection.tsx. Previously that control read the file into a base64
-// data: URL and stored it directly as ProductImage.src — never a real,
-// browser-fetchable URL, and blocked outright by the storefront's CSP
-// (`img-src 'self'` — see next.config.ts) once next/image tried to render
-// it. This action instead copies the file into public/uploads/products/
-// (served by Next.js as a normal static asset at /uploads/products/<name>,
-// same-origin, so no CSP or images.remotePatterns change is needed) and
-// returns that URL for the form to store instead.
-//
-// Deployment target is a persistent Node process (see DEPLOYMENT.md —
-// `npm run build && npm run start` behind Hostinger's own process manager,
-// not a serverless/ephemeral filesystem platform), so local disk storage
-// under public/ is durable across requests. If this app ever moves to a
-// serverless host, lib/admin/image-upload-core.ts's saveUploadedImage is the
-// one function to swap for a cloud-storage (S3/R2/Cloudinary) upload — every
-// caller only depends on getting back a { url } string, not on how it was
-// stored.
+// ImagesSection.tsx. lib/admin/image-upload-core.ts's saveUploadedImage does
+// the real work — validates the file server-side, then uploads it to the
+// shared public Supabase Storage bucket (lib/admin/supabase-storage.ts) and
+// returns its public URL for the form to store as ProductImage.src. Storing
+// in Supabase (rather than Hostinger's local disk) means a new product
+// image is live immediately, with no manual file upload to the server and
+// no redeploy — and survives across redeploys/restarts, unlike
+// public/uploads/ (see that directory's .gitignore entry).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { saveUploadedImage } from './image-upload-core'

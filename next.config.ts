@@ -43,6 +43,20 @@ import type { NextConfig } from 'next'
 
 const isProd = process.env.NODE_ENV === 'production'
 
+/** Hostname of the Supabase Storage project (e.g. "abcd1234.supabase.co"),
+ *  derived from SUPABASE_URL so it never has to be duplicated/hardcoded
+ *  here. Only added to images.remotePatterns below when the env var is
+ *  actually set (e.g. local dev without it configured yet) — next/image
+ *  simply won't optimize a remote host that isn't allowlisted, same as
+ *  before. */
+function supabaseStorageHostname(): string | undefined {
+  try {
+    return process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL).hostname : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Baseline every route shares. Storefront and admin CSPs each add their
  *  own script-src/style-src/img-src on top (see the two entries below) —
  *  this only carries the directives that are identical either way. */
@@ -74,9 +88,11 @@ const STYLE_SRC = "style-src 'self' 'unsafe-inline'"
  *
  *   Everything else (product images, fonts) is same-origin only:
  *   next/image proxies every remote image (next.config's own
- *   images.remotePatterns for images.unsplash.com/plus.unsplash.com)
- *   through Next's own /_next/image route server-side — the BROWSER never
- *   requests Unsplash directly, so img-src doesn't need it. next/font
+ *   images.remotePatterns for images.unsplash.com/plus.unsplash.com, and
+ *   the Supabase Storage host admin-uploaded images now live on — see
+ *   supabaseStorageHostname() above) through Next's own /_next/image route
+ *   server-side — the BROWSER never requests Unsplash or Supabase
+ *   directly, so img-src doesn't need either. next/font
  *   self-hosts Sequel Sans as same-origin static files, so
  *   font-src needs nothing external either. No analytics/tracking script
  *   exists anywhere in this codebase (verified: no next/script usage, no
@@ -133,6 +149,19 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'plus.unsplash.com',
       },
+      // Admin-uploaded product/banner images (lib/admin/supabase-storage.ts)
+      // — scoped to the public-bucket object path so this doesn't widen
+      // next/image's allowlist to the rest of the Supabase project (e.g.
+      // its REST/auth endpoints, which aren't images at all).
+      ...(supabaseStorageHostname()
+        ? [
+            {
+              protocol: 'https' as const,
+              hostname: supabaseStorageHostname()!,
+              pathname: '/storage/v1/object/public/**',
+            },
+          ]
+        : []),
     ],
   },
   async headers() {

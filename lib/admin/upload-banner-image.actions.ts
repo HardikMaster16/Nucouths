@@ -1,16 +1,14 @@
 'use server'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Nucouths Admin — Banner Image Upload (local filesystem)
+// Nucouths Admin — Banner Image Upload (Supabase Storage)
 //
 // Same fix as lib/admin/upload-image.actions.ts (product images), applied to
-// the Banner form (components/admin/banners/BannerFormModal.tsx): its
-// "Choose a file…" controls used to read the picked file into a base64
-// data: URL and store that directly as Banner.desktopImage/mobileImage —
-// never a real URL, and blocked by the storefront CSP the same way a
-// data:-URL product image was. Writes into public/uploads/banners/ (see
-// lib/admin/image-upload-core.ts) and returns a real /uploads/banners/<name>
-// URL for the form to store instead.
+// the Banner form (components/admin/banners/BannerFormModal.tsx): uploads go
+// to the shared public Supabase Storage bucket via
+// lib/admin/image-upload-core.ts's saveUploadedImage, which returns a real,
+// publicly-fetchable URL for the form to store as Banner.desktopImage or
+// Banner.mobileImage.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { saveUploadedImage } from './image-upload-core'

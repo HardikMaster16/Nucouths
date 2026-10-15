@@ -13,9 +13,11 @@ out/
 # Prisma
 prisma/generated/
 
-# Admin-uploaded images (lib/admin/upload-image.actions.ts,
-# lib/admin/upload-banner-image.actions.ts) — real user content, not
-# source; keep the directories themselves under version control.
+# Legacy local-filesystem admin uploads — new uploads go to Supabase
+# Storage instead (lib/admin/supabase-storage.ts). These directories only
+# still exist for scripts/migrate-local-uploads-to-supabase.ts to read from
+# on whichever machine originally received the upload; keep the directories
+# themselves under version control.
 public/uploads/products/*
 !public/uploads/products/.gitkeep
 public/uploads/banners/*

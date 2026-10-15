@@ -16,6 +16,7 @@
     "repair:legacy-order-payment-status": "tsx scripts/repair-legacy-order-payment-status.ts",
     "migrate:legacy-data-url-images": "tsx scripts/migrate-data-url-product-images.ts",
     "migrate:legacy-data-url-banners": "tsx scripts/migrate-data-url-banner-images.ts",
+    "migrate:local-uploads-to-supabase": "tsx scripts/migrate-local-uploads-to-supabase.ts",
     "admin:create": "tsx scripts/create-admin.ts"
   },
   "prisma": {
@@ -24,6 +25,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@supabase/supabase-js": "^2.118.0",
     "bcryptjs": "^3.0.3",
     "next": "^16.3.5",
     "pg": "^8.23.0",
